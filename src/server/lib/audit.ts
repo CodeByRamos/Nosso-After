@@ -28,7 +28,16 @@ export type AuditAction =
   | "ticket.issue"
   | "ticket.invalidate"
   | "checkin.admit"
-  | "manual.adjustment";
+  | "manual.adjustment"
+  | "coupon.create"
+  | "coupon.update"
+  | "promoter.create"
+  | "promoter.update"
+  | "reconciliation.resolve"
+  | "member.create"
+  | "member.update"
+  | "customer.export"
+  | "customer.anonymize";
 
 export interface AuditEntry {
   action: AuditAction;

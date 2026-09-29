@@ -53,3 +53,29 @@ export function verifyOrderAccessToken(orderId: string, token: string | null | u
 }
 
 export const orderCookieName = (orderId: string) => `na_order_${orderId.replace(/-/g, "")}`;
+
+// ---------------------------------------------------------------------------
+// Promoter attribution cookie (ADR-0008): <promoterId>.<expiresAtUnix>.<mac>
+// Signed server-side, so the browser can't forge or edit the attribution.
+// ---------------------------------------------------------------------------
+
+export const PROMOTER_COOKIE = "na_ref";
+export const PROMOTER_ATTRIBUTION_DAYS = 30;
+
+function refMac(promoterId: string, exp: number) {
+  return hmacSha256(env().ORDER_ACCESS_SECRET, `promoter-ref:${promoterId}:${exp}`).subarray(0, 16).toString("base64url");
+}
+
+export function signPromoterRef(promoterId: string, now = Date.now()): string {
+  const exp = Math.floor(now / 1000) + PROMOTER_ATTRIBUTION_DAYS * 86_400;
+  return `${promoterId}.${exp}.${refMac(promoterId, exp)}`;
+}
+
+export function verifyPromoterRef(value: string | null | undefined, now = Date.now()): string | null {
+  if (!value || value.length > 120) return null;
+  const [id, expStr, mac] = value.split(".");
+  const exp = Number(expStr);
+  if (!id || !mac || !/^[0-9a-f-]{36}$/.test(id) || !Number.isInteger(exp)) return null;
+  if (exp * 1000 < now) return null;
+  return safeEqual(refMac(id, exp), mac) ? id : null;
+}

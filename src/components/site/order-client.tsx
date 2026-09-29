@@ -145,6 +145,12 @@ function Summary({ order }: { order: FullOrder }) {
           <span className="tabular">{formatBRL(i.unitPrice * i.quantity)}</span>
         </div>
       ))}
+      {order.discount > 0 && (
+        <div className="flex justify-between py-1 text-sea">
+          <span>Desconto</span>
+          <span className="tabular">−{formatBRL(order.discount)}</span>
+        </div>
+      )}
       <div className="flex justify-between py-1 text-sand-2">
         <span>Taxa de serviço</span>
         <span className="tabular">{formatBRL(order.fee)}</span>

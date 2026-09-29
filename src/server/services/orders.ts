@@ -26,7 +26,9 @@ import { AppError } from "@/server/lib/errors";
 import { logger } from "@/server/lib/logger";
 import type { CreateOrderInput, QuoteInput } from "@/validators/checkout";
 import { batchOnSale, eventOnSale, resolveFeeRuleFor, type BatchRow, type EventRow } from "./catalog";
+import { confirmCouponForOrder, releaseCouponForOrder, reserveCoupon, resolveCoupon, type CouponRow } from "./coupons";
 import { addOrderEvent } from "./order-events";
+import { commissionFor, eligiblePromoter } from "./promoters";
 import { issueTicketsForOrder } from "./tickets";
 
 export { addOrderEvent };
@@ -40,6 +42,7 @@ interface LoadedQuote {
   event: EventRow;
   batches: Map<string, BatchRow & { typeName: string }>;
   quote: Quote;
+  coupon: CouponRow | null;
 }
 
 async function loadAndQuote(db: Tx | ReturnType<typeof getDb>, input: QuoteInput, now: Date): Promise<LoadedQuote> {
@@ -72,15 +75,22 @@ async function loadAndQuote(db: Tx | ReturnType<typeof getDb>, input: QuoteInput
     paymentMethod: input.paymentMethod,
     at: now,
   });
+  const coupon = input.couponCode
+    ? await resolveCoupon(db, { organizationId: event.organizationId, eventId: event.id, code: input.couponCode, at: now })
+    : null;
   const quote = computeQuote(
     input.items.map((i) => ({ batchId: i.batchId, quantity: i.quantity, unitPrice: batches.get(i.batchId)!.price })),
     rule,
+    coupon?.pricing ?? null,
   );
+  if (coupon && quote.discount === 0) {
+    throw new AppError("COUPON_INVALID", "Este cupom não vale para os ingressos selecionados.");
+  }
   if (quote.total <= 0) {
-    // Free tickets need a different (non-payment) flow — out of MVP scope.
+    // Free tickets need a different (non-payment) flow — out of scope for now.
     throw new AppError("NOT_SUPPORTED", "Ingressos gratuitos ainda não são suportados.");
   }
-  return { event, batches, quote };
+  return { event, batches, quote, coupon: coupon?.row ?? null };
 }
 
 /** Price preview shown in the review step (fees itemized before confirmation). No reservation. */
@@ -91,6 +101,7 @@ export async function quoteOrder(input: QuoteInput, now = new Date()) {
     discount: quote.discount,
     fee: quote.fee,
     total: quote.total,
+    couponCode: quote.couponId ? input.couponCode?.trim().toUpperCase() : null,
     lines: quote.lines.map((l) => {
       const b = batches.get(l.batchId)!;
       return {
@@ -98,6 +109,7 @@ export async function quoteOrder(input: QuoteInput, now = new Date()) {
         description: `${b.typeName} · ${b.name}`,
         quantity: l.quantity,
         unitPrice: l.unitPrice,
+        unitDiscount: l.unitDiscount,
         unitFee: l.unitFee,
       };
     }),
@@ -109,18 +121,25 @@ export interface CreatedOrder {
   code: string;
   status: OrderRow["status"];
   subtotal: number;
+  discount: number;
   fee: number;
   total: number;
   expiresAt: string;
   paymentMethod: OrderRow["paymentMethod"];
 }
 
-export async function createOrder(input: CreateOrderInput, meta: { ip?: string | null } = {}): Promise<CreatedOrder> {
+export async function createOrder(
+  input: CreateOrderInput,
+  meta: { ip?: string | null; promoterId?: string | null } = {},
+): Promise<CreatedOrder> {
   const now = new Date();
   const reservationMs = env().ORDER_RESERVATION_MINUTES * 60_000;
 
   return getDb().transaction(async (tx) => {
-    const { event, batches, quote } = await loadAndQuote(tx, input, now);
+    const { event, batches, quote, coupon } = await loadAndQuote(tx, input, now);
+    const promoter = await eligiblePromoter(tx, meta.promoterId ?? null, event.organizationId);
+    const ticketCount = input.items.reduce((s, i) => s + i.quantity, 0);
+    const commission = promoter ? commissionFor(promoter, quote.subtotal - quote.discount, ticketCount) : 0;
     const email = input.buyer.email;
 
     // Serialize concurrent checkouts of the same buyer for the same event (per-customer limit).
@@ -208,6 +227,9 @@ export async function createOrder(input: CreateOrderInput, meta: { ip?: string |
         totalAmount: quote.total,
         expiresAt: new Date(now.getTime() + reservationMs),
         ip: meta.ip ?? null,
+        couponId: quote.couponId,
+        promoterId: promoter?.id ?? null,
+        promoterCommissionAmount: commission,
       })
       .returning();
     if (!order) throw new AppError("INTERNAL", "Falha ao criar pedido.");
@@ -222,6 +244,7 @@ export async function createOrder(input: CreateOrderInput, meta: { ip?: string |
           ticketTypeId: b.ticketTypeId,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
+          unitDiscount: line.unitDiscount,
           unitFee: line.unitFee,
           description: `${b.typeName} · ${b.name}`,
         })
@@ -248,7 +271,15 @@ export async function createOrder(input: CreateOrderInput, meta: { ip?: string |
       });
     }
 
-    await addOrderEvent(tx, order.id, "ORDER_CREATED", { total: quote.total, method: input.paymentMethod });
+    if (coupon && quote.couponId) {
+      await reserveCoupon(tx, coupon, { orderId: order.id, customerId: customer.id, discount: quote.discount });
+    }
+    await addOrderEvent(tx, order.id, "ORDER_CREATED", {
+      total: quote.total,
+      method: input.paymentMethod,
+      ...(quote.couponId ? { coupon: coupon?.code, discount: quote.discount } : {}),
+      ...(promoter ? { promoter: promoter.code, commission } : {}),
+    });
     await addOrderEvent(tx, order.id, "INVENTORY_RESERVED", {
       items: input.items,
       expiresAt: order.expiresAt.toISOString(),
@@ -268,6 +299,7 @@ export async function createOrder(input: CreateOrderInput, meta: { ip?: string |
       code: order.code,
       status: order.status,
       subtotal: order.subtotalAmount,
+      discount: order.discountAmount,
       fee: order.feeAmount,
       total: order.totalAmount,
       expiresAt: order.expiresAt.toISOString(),
@@ -396,6 +428,7 @@ export async function markOrderPaid(tx: Tx, order: OrderRow, paymentId: string) 
     amount: order.totalAmount,
     metadata: { paymentId, code: order.code },
   });
+  await confirmCouponForOrder(tx, order.id);
   await issueTicketsForOrder(tx, { ...order, status: "PAID", paidAt });
 }
 
@@ -410,6 +443,7 @@ export async function expireOrder(orderId: string): Promise<boolean> {
       .where(and(eq(payments.orderId, order.id), inArray(payments.status, ["PROCESSING", "AUTHORIZED", "PAID"])));
     if (live.length > 0) return false; // card under review / already paid — resolved by payment sync
     await releaseInventory(tx, order, "expired");
+    await releaseCouponForOrder(tx, order.id);
     await tx
       .update(orders)
       .set({ status: "EXPIRED", cancelledAt: new Date(), updatedAt: new Date() })
@@ -457,7 +491,13 @@ export async function getOrderView(orderId: string) {
     paidAt: order.paidAt?.toISOString() ?? null,
     event: event ? { id: event.id, name: event.name, slug: event.slug, startsAt: event.startsAt.toISOString() } : null,
     buyer: customer ? { name: customer.name, email: customer.email } : null,
-    items: items.map((i) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, unitFee: i.unitFee })),
+    items: items.map((i) => ({
+      description: i.description,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      unitDiscount: i.unitDiscount,
+      unitFee: i.unitFee,
+    })),
     payment: payment
       ? {
           id: payment.id,

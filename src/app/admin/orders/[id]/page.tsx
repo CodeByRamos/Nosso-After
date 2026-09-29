@@ -16,7 +16,7 @@ export default async function OrderAdminPage({ params }: { params: Promise<{ id:
   if (!id.success) notFound();
   const data = await getOrderAdmin(id.data);
   if (!data || !can(auth, "orders:read", data.order.organizationId)) notFound();
-  const { order, customer, event, items, payments, tickets, timeline, refunds, fees } = data;
+  const { order, customer, event, items, payments, tickets, timeline, refunds, fees, coupon, promoter } = data;
   const finance = can(auth, "finance:read", order.organizationId);
   const canRefund = can(auth, "refunds:create", order.organizationId);
   const refundable = payments.find((p) => p.status === "PAID" || p.status === "PARTIALLY_REFUNDED");
@@ -40,12 +40,16 @@ export default async function OrderAdminPage({ params }: { params: Promise<{ id:
                 <dd className="tabular">{formatBRL(i.unitPrice * i.quantity)}</dd>
               </div>
             ))}
+            {order.discountAmount > 0 && (
+              <div className="col-span-2 flex justify-between text-emerald-700 sm:col-span-4"><dt>Desconto (cupom {coupon?.code})</dt><dd className="tabular">−{formatBRL(order.discountAmount)}</dd></div>
+            )}
             {finance && (
               <>
                 <div className="col-span-2 flex justify-between sm:col-span-4"><dt className="text-stone-500">Taxa de serviço (plataforma)</dt><dd className="tabular">{formatBRL(order.feeAmount)}</dd></div>
                 <div className="col-span-2 flex justify-between border-t border-stone-200 pt-1 font-semibold sm:col-span-4"><dt>Total pago</dt><dd className="tabular">{formatBRL(order.totalAmount)}</dd></div>
                 {order.refundedAmount > 0 && <div className="col-span-2 flex justify-between text-sky-700 sm:col-span-4"><dt>Reembolsado</dt><dd className="tabular">−{formatBRL(order.refundedAmount)}</dd></div>}
                 <div className="col-span-2 flex justify-between text-stone-500 sm:col-span-4"><dt>Líquido produtor (antes da tarifa PSP)</dt><dd className="tabular">{formatBRL(order.paidAt ? order.totalAmount - order.feeAmount - order.refundedAmount : 0)}</dd></div>
+                {promoter && <div className="col-span-2 flex justify-between text-stone-500 sm:col-span-4"><dt>Comissão promoter {promoter.name} ({promoter.code})</dt><dd className="tabular">{formatBRL(order.promoterCommissionAmount)}</dd></div>}
               </>
             )}
           </dl>

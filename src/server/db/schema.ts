@@ -108,6 +108,10 @@ export const webhookStatus = pgEnum("webhook_status", [
 export const idempotencyStatus = pgEnum("idempotency_status", ["IN_PROGRESS", "COMPLETED"]);
 export const actorType = pgEnum("actor_type", ["USER", "CUSTOMER", "SYSTEM", "PROVIDER"]);
 export const emailStatus = pgEnum("email_status", ["PENDING", "SENT", "FAILED"]);
+export const couponType = pgEnum("coupon_type", ["PERCENTAGE", "FIXED"]);
+export const redemptionStatus = pgEnum("redemption_status", ["RESERVED", "CONFIRMED", "RELEASED"]);
+export const reconIssueStatus = pgEnum("recon_issue_status", ["OPEN", "RESOLVED"]);
+export const reconSeverity = pgEnum("recon_severity", ["INFO", "WARNING", "CRITICAL"]);
 
 // ---------------------------------------------------------------------------
 // Identity & tenancy
@@ -359,6 +363,10 @@ export const orders = pgTable(
     feeAmount: integer("fee_amount").notNull(),
     totalAmount: integer("total_amount").notNull(),
     refundedAmount: integer("refunded_amount").notNull().default(0),
+    couponId: uuid("coupon_id").references(() => coupons.id),
+    promoterId: uuid("promoter_id").references(() => promoters.id),
+    /** Commission snapshot at purchase time (ADR-0008); only owed while the order stays paid. */
+    promoterCommissionAmount: integer("promoter_commission_amount").notNull().default(0),
     expiresAt: ts("expires_at").notNull(),
     paidAt: ts("paid_at"),
     cancelledAt: ts("cancelled_at"),
@@ -372,6 +380,8 @@ export const orders = pgTable(
     index("orders_org_created_idx").on(t.organizationId, t.createdAt),
     index("orders_event_status_idx").on(t.eventId, t.status),
     index("orders_customer_idx").on(t.customerId),
+    index("orders_promoter_idx").on(t.promoterId),
+    index("orders_coupon_idx").on(t.couponId),
     index("orders_expiry_idx")
       .on(t.expiresAt)
       .where(sql`${t.status} = 'AWAITING_PAYMENT'`),
@@ -381,6 +391,7 @@ export const orders = pgTable(
       sql`${t.totalAmount} = ${t.subtotalAmount} - ${t.discountAmount} + ${t.feeAmount}`,
     ),
     check("orders_refunded_ck", sql`${t.refundedAmount} BETWEEN 0 AND ${t.totalAmount}`),
+    check("orders_commission_ck", sql`${t.promoterCommissionAmount} >= 0`),
   ],
 );
 
@@ -399,6 +410,7 @@ export const orderItems = pgTable(
       .references(() => ticketTypes.id),
     quantity: integer("quantity").notNull(),
     unitPrice: integer("unit_price").notNull(),
+    unitDiscount: integer("unit_discount").notNull().default(0),
     unitFee: integer("unit_fee").notNull(),
     /** Snapshot for receipts: batch and type names at purchase time. */
     description: text("description").notNull(),
@@ -409,6 +421,7 @@ export const orderItems = pgTable(
     index("order_items_batch_idx").on(t.ticketBatchId),
     check("order_items_quantity_ck", sql`${t.quantity} > 0`),
     check("order_items_amounts_ck", sql`${t.unitPrice} >= 0 AND ${t.unitFee} >= 0`),
+    check("order_items_discount_ck", sql`${t.unitDiscount} BETWEEN 0 AND ${t.unitPrice}`),
   ],
 );
 
@@ -425,6 +438,121 @@ export const orderEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("order_events_order_idx").on(t.orderId, t.id)],
+);
+
+// ---------------------------------------------------------------------------
+// Coupons & promoters (phase 2, ADR-0008)
+// ---------------------------------------------------------------------------
+
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    /** Null = valid for every event of the organization. */
+    eventId: uuid("event_id").references(() => events.id),
+    code: text("code").notNull(),
+    description: text("description"),
+    type: couponType("type").notNull(),
+    /** PERCENTAGE: basis points per ticket. FIXED: cents per ticket. */
+    value: integer("value").notNull(),
+    /** Null = unlimited. */
+    maxRedemptions: integer("max_redemptions"),
+    /** Orders currently holding or having used the coupon (RESERVED + CONFIRMED). */
+    redeemedCount: integer("redeemed_count").notNull().default(0),
+    perCustomerLimit: integer("per_customer_limit").notNull().default(1),
+    validFrom: ts("valid_from").notNull().defaultNow(),
+    validUntil: ts("valid_until"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("coupons_org_code_uq").on(t.organizationId, t.code),
+    check("coupons_code_ck", sql`${t.code} ~ '^[A-Z0-9_-]{3,32}$'`),
+    check("coupons_value_ck", sql`${t.value} > 0 AND (${t.type} <> 'PERCENTAGE' OR ${t.value} <= 10000)`),
+    check("coupons_max_ck", sql`${t.maxRedemptions} IS NULL OR ${t.maxRedemptions} > 0`),
+    // Atomic usage control: the counter can never pass the limit.
+    check(
+      "coupons_redeemed_ck",
+      sql`${t.redeemedCount} >= 0 AND (${t.maxRedemptions} IS NULL OR ${t.redeemedCount} <= ${t.maxRedemptions})`,
+    ),
+    check("coupons_per_customer_ck", sql`${t.perCustomerLimit} BETWEEN 1 AND 100`),
+    check("coupons_window_ck", sql`${t.validUntil} IS NULL OR ${t.validUntil} > ${t.validFrom}`),
+  ],
+);
+
+/** Batches a coupon is restricted to. No rows = every batch in scope. */
+export const couponBatches = pgTable(
+  "coupon_batches",
+  {
+    couponId: uuid("coupon_id")
+      .notNull()
+      .references(() => coupons.id, { onDelete: "cascade" }),
+    ticketBatchId: uuid("ticket_batch_id")
+      .notNull()
+      .references(() => ticketBatches.id),
+  },
+  (t) => [uniqueIndex("coupon_batches_uq").on(t.couponId, t.ticketBatchId)],
+);
+
+export const couponRedemptions = pgTable(
+  "coupon_redemptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    couponId: uuid("coupon_id")
+      .notNull()
+      .references(() => coupons.id),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id),
+    status: redemptionStatus("status").notNull().default("RESERVED"),
+    discountAmount: integer("discount_amount").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("coupon_redemptions_order_uq").on(t.orderId),
+    index("coupon_redemptions_customer_idx").on(t.couponId, t.customerId),
+    check("coupon_redemptions_amount_ck", sql`${t.discountAmount} > 0`),
+  ],
+);
+
+export const promoters = pgTable(
+  "promoters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    /** Optional login (role PROMOTER) to see their own sales. */
+    userId: uuid("user_id").references(() => users.id),
+    name: text("name").notNull(),
+    /** Public code used in /r/<code>. Globally unique, uppercase. */
+    code: text("code").notNull(),
+    commissionBps: integer("commission_bps").notNull().default(0),
+    commissionFixedPerTicket: integer("commission_fixed_per_ticket").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("promoters_code_uq").on(t.code),
+    index("promoters_org_idx").on(t.organizationId),
+    index("promoters_user_idx").on(t.userId),
+    check("promoters_code_ck", sql`${t.code} ~ '^[A-Z0-9_-]{3,32}$'`),
+    check(
+      "promoters_commission_ck",
+      sql`${t.commissionBps} BETWEEN 0 AND 10000 AND ${t.commissionFixedPerTicket} >= 0`,
+    ),
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -804,6 +932,34 @@ export const emailOutbox = pgTable(
     index("email_outbox_pending_idx")
       .on(t.createdAt)
       .where(sql`${t.status} = 'PENDING'`),
+  ],
+);
+
+/**
+ * Findings of the reconciliation job (order <-> payment <-> PSP <-> refund). One row per problem,
+ * deduplicated by `dedupe_key`; re-detected problems bump `last_seen_at`.
+ */
+export const reconciliationIssues = pgTable(
+  "reconciliation_issues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").references(() => organizations.id),
+    type: text("type").notNull(),
+    severity: reconSeverity("severity").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
+    status: reconIssueStatus("status").notNull().default("OPEN"),
+    detectedAt: ts("detected_at").notNull().defaultNow(),
+    lastSeenAt: ts("last_seen_at").notNull().defaultNow(),
+    resolvedAt: ts("resolved_at"),
+    resolvedBy: uuid("resolved_by").references(() => users.id),
+    resolutionNote: text("resolution_note"),
+  },
+  (t) => [
+    uniqueIndex("recon_dedupe_uq").on(t.dedupeKey),
+    index("recon_org_status_idx").on(t.organizationId, t.status, t.detectedAt),
   ],
 );
 

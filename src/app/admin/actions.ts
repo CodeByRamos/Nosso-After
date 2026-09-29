@@ -1,46 +1,22 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
-import { assertCan, canPlatform, requireApiAuth, type AuthContext } from "@/server/auth/session";
+import { assertCan, canPlatform } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { events, feeRules } from "@/server/db/schema";
 import { audit } from "@/server/lib/audit";
-import { AppError, isAppError } from "@/server/lib/errors";
-import { clientIp } from "@/server/lib/http";
-import { withLogContext } from "@/server/lib/logger";
+import { AppError } from "@/server/lib/errors";
 import { saveBatch, saveEvent, setEventStatus } from "@/server/services/admin-events";
 import { orderOrganizationId } from "@/server/services/orders";
 import { requestRefund } from "@/server/services/refunds";
 import { batchFormSchema, eventFormSchema, eventStatusSchema, feeRuleFormSchema, refundFormSchema } from "@/validators/admin";
 import { uuidSchema } from "@/validators/common";
 
-export type ActionState = { error?: string; ok?: string; fields?: Record<string, string> } | undefined;
+import { formObject, run, type ActionState } from "./action-runner";
 
-/** Runs an admin mutation with auth, request context for the audit trail, and uniform errors. */
-async function run(fn: (auth: AuthContext) => Promise<ActionState | void>): Promise<ActionState> {
-  const h = await headers();
-  try {
-    const auth = await requireApiAuth();
-    return await withLogContext(
-      { request_id: h.get("x-request-id") ?? undefined, user_id: auth.user.id, ip: clientIp(h) ?? undefined, user_agent: h.get("user-agent") ?? undefined },
-      async () => (await fn(auth)) ?? { ok: "Salvo." },
-    );
-  } catch (e) {
-    if (e instanceof z.ZodError) {
-      return { error: "Revise os campos destacados.", fields: Object.fromEntries(e.issues.map((i) => [i.path.join("."), i.message])) };
-    }
-    if (isAppError(e)) return { error: e.message };
-    if (e && typeof e === "object" && "digest" in e) throw e; // let redirect() through
-    console.error(e);
-    return { error: "Erro inesperado." };
-  }
-}
-
-const formObject = (f: FormData) => Object.fromEntries([...f.entries()].map(([k, v]) => [k, typeof v === "string" ? v : ""]));
+export type { ActionState };
 
 export async function saveEventAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   let createdId: string | undefined;

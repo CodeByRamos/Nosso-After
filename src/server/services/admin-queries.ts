@@ -216,7 +216,11 @@ export async function getOrderAdmin(orderId: string) {
     db.select({ refund: refunds, by: users.name }).from(refunds).leftJoin(users, eq(users.id, refunds.requestedBy)).where(eq(refunds.orderId, order.id)).orderBy(desc(refunds.createdAt)),
     db.query.fees.findMany({ where: (fe, { eq }) => eq(fe.orderId, order.id) }),
   ]);
-  return { order, customer, event, items, payments: pays, tickets: ticketRows, timeline, refunds: refundRows, fees: feeRows };
+  const [coupon, promoter] = await Promise.all([
+    order.couponId ? db.query.coupons.findFirst({ where: (c, { eq }) => eq(c.id, order.couponId!), columns: { code: true } }) : null,
+    order.promoterId ? db.query.promoters.findFirst({ where: (p, { eq }) => eq(p.id, order.promoterId!), columns: { name: true, code: true } }) : null,
+  ]);
+  return { order, customer, event, items, payments: pays, tickets: ticketRows, timeline, refunds: refundRows, fees: feeRows, coupon, promoter };
 }
 
 export async function listPayments(orgIds: string[], opts: { page: number; status?: string }) {

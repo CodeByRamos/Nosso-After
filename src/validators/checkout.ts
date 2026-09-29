@@ -13,6 +13,12 @@ export const quoteSchema = z.object({
   eventId: uuidSchema,
   items: orderItemsSchema,
   paymentMethod: paymentMethodSchema,
+  couponCode: z
+    .string()
+    .trim()
+    .max(32)
+    .transform((v) => v || undefined)
+    .optional(),
 });
 export type QuoteInput = z.infer<typeof quoteSchema>;
 

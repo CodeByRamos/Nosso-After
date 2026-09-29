@@ -110,3 +110,64 @@ export const listQuerySchema = z.object({
   status: z.string().trim().max(40).optional(),
   eventId: uuidSchema.optional().or(z.literal("").transform(() => undefined)),
 });
+
+const optionalUuid = uuidSchema.optional().or(z.literal("").transform(() => undefined));
+const optionalPositiveInt = z
+  .string()
+  .optional()
+  .transform((v) => (v ? Number(v) : undefined))
+  .pipe(z.number().int().min(1).max(1_000_000).optional());
+
+const percentToBps = z
+  .string()
+  .trim()
+  .regex(/^\d{1,3}(,\d{1,2})?$/, "Percentual inválido")
+  .transform((v) => Math.round(Number(v.replace(",", ".")) * 100))
+  .refine((bps) => bps <= 10_000, "Máximo 100%");
+
+export const couponFormSchema = z
+  .object({
+    organizationId: uuidSchema,
+    eventId: optionalUuid,
+    code: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9_-]{3,32}$/, "Use 3 a 32 letras, números, _ ou -"),
+    description: z.string().trim().max(200).optional(),
+    type: z.enum(["PERCENTAGE", "FIXED"]),
+    value: z.string().trim().min(1, "Informe o valor"),
+    maxRedemptions: optionalPositiveInt,
+    perCustomerLimit: z.coerce.number().int().min(1).max(100),
+    validFrom: localDateTimeSchema,
+    validUntil: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v : undefined))
+      .pipe(localDateTimeSchema.optional()),
+    batchIds: z.array(uuidSchema).max(50).default([]),
+  })
+  .transform((v, ctx) => {
+    const parsed = v.type === "PERCENTAGE" ? percentToBps.safeParse(v.value) : reaisToCentsSchema.safeParse(v.value);
+    if (!parsed.success || parsed.data <= 0) {
+      ctx.addIssue({ code: "custom", path: ["value"], message: "Valor inválido" });
+      return z.NEVER;
+    }
+    if (v.validUntil && v.validUntil <= v.validFrom) {
+      ctx.addIssue({ code: "custom", path: ["validUntil"], message: "Fim deve ser após o início" });
+      return z.NEVER;
+    }
+    return { ...v, value: parsed.data };
+  });
+
+export const promoterFormSchema = z.object({
+  organizationId: uuidSchema,
+  name: z.string().trim().min(2).max(80),
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9_-]{3,32}$/, "Use 3 a 32 letras, números, _ ou -"),
+  commissionPercent: percentToBps,
+  commissionFixed: reaisToCentsSchema,
+});

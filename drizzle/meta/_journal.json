@@ -15,6 +15,13 @@
       "when": 1790645243466,
       "tag": "0001_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790656137647,
+      "tag": "0002_phase2_coupons_promoters_recon",
+      "breakpoints": true
     }
   ]
 }

@@ -17,9 +17,11 @@ type Step = "dados" | "pagamento" | "revisao";
 
 interface Quote {
   subtotal: number;
+  discount: number;
   fee: number;
   total: number;
-  lines: { batchId: string; description: string; quantity: number; unitPrice: number; unitFee: number }[];
+  couponCode: string | null;
+  lines: { batchId: string; description: string; quantity: number; unitPrice: number; unitDiscount: number; unitFee: number }[];
 }
 
 const STEPS: { id: Step; label: string }[] = [
@@ -59,6 +61,8 @@ export function CheckoutFlow({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponError, setCouponError] = useState<string | null>(null);
   const orderKey = useRef<string | null>(null);
 
   const payloadItems = items.map((i) => ({ batchId: i.batchId, quantity: i.quantity }));
@@ -76,18 +80,22 @@ export function CheckoutFlow({
     return Object.keys(errs).length === 0;
   }
 
-  async function loadQuote(m: Method) {
+  async function loadQuote(m: Method, couponCode?: string) {
     setBusy(true);
     setError(null);
+    setCouponError(null);
     try {
       const res = await api<{ data: Quote }>("/api/orders/quote", {
         method: "POST",
-        body: JSON.stringify({ eventId: event.id, items: payloadItems, paymentMethod: m }),
+        body: JSON.stringify({ eventId: event.id, items: payloadItems, paymentMethod: m, couponCode }),
       });
       setQuote(res.data);
       setStep("revisao");
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Erro ao calcular o total.");
+      const msg = e instanceof ApiError ? e.message : "Erro ao calcular o total.";
+      // A bad coupon must not throw the buyer out of the review step.
+      if (couponCode && e instanceof ApiError && e.code === "COUPON_INVALID") setCouponError(msg);
+      else setError(msg);
     } finally {
       setBusy(false);
     }
@@ -105,6 +113,7 @@ export function CheckoutFlow({
           eventId: event.id,
           items: payloadItems,
           paymentMethod: method,
+          couponCode: quote?.couponCode ?? undefined,
           buyer: {
             name: buyer.name.trim(),
             email: buyer.email.trim(),
@@ -233,6 +242,12 @@ export function CheckoutFlow({
                 <span className="tabular">{formatBRL(l.unitPrice * l.quantity)}</span>
               </div>
             ))}
+            {quote.discount > 0 && (
+              <div className="flex justify-between py-1 text-sea">
+                <span>Cupom {quote.couponCode}</span>
+                <span className="tabular">−{formatBRL(quote.discount)}</span>
+              </div>
+            )}
             <div className="flex justify-between py-1 text-sand-2">
               <span>Taxa de serviço</span>
               <span className="tabular">{formatBRL(quote.fee)}</span>
@@ -242,6 +257,34 @@ export function CheckoutFlow({
               <span className="tabular">{formatBRL(quote.total)}</span>
             </div>
           </div>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void loadQuote(method, couponInput.trim() || undefined);
+            }}
+          >
+            <label className="sr-only" htmlFor="coupon">Cupom de desconto</label>
+            <input
+              id="coupon"
+              value={couponInput}
+              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+              placeholder="Cupom de desconto"
+              autoComplete="off"
+              maxLength={32}
+              className={`${inputCls} py-2.5`}
+            />
+            {quote.couponCode ? (
+              <button type="button" onClick={() => { setCouponInput(""); void loadQuote(method); }} className="shrink-0 rounded-xl border border-line px-4 text-sm">
+                Remover
+              </button>
+            ) : (
+              <button type="submit" disabled={busy || !couponInput.trim()} className="shrink-0 rounded-xl border border-line px-4 text-sm disabled:opacity-40">
+                Aplicar
+              </button>
+            )}
+          </form>
+          {couponError && <p role="alert" className="-mt-2 text-sm text-danger">{couponError}</p>}
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
             <dt className="text-mute">Comprador</dt>
             <dd>{buyer.name}</dd>
