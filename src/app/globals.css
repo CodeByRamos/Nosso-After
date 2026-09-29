@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/*
+ * Nosso After — visual identity
+ * Night on the Guarujá coast: deep ink sky, warm sand type, a sunset-coral signal color,
+ * and a sea-teal for confirmations. The admin reuses the tokens on a light surface.
+ */
+@theme {
+  --color-ink: #0a0b10;
+  --color-ink-2: #12141c;
+  --color-ink-3: #1b1e2a;
+  --color-line: #2a2e3d;
+  --color-sand: #f3ece2;
+  --color-sand-2: #c9c1b5;
+  --color-mute: #8b8fa3;
+  --color-sunset: #ff5a36;
+  --color-sunset-2: #ff8a3d;
+  --color-sea: #1fc8b4;
+  --color-danger: #ff4d6d;
+  --color-warn: #ffb020;
+
+  --font-display: var(--font-anton), "Impact", "Arial Narrow", sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-family: var(--font-sans);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-sunset);
+    outline-offset: 2px;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* avoids iOS zoom on focus */
+  }
+}
+
+@layer components {
+  .grain {
+    background-image:
+      radial-gradient(120% 80% at 80% -10%, rgb(255 90 54 / 0.28), transparent 60%),
+      radial-gradient(90% 70% at -10% 110%, rgb(31 200 180 / 0.18), transparent 60%);
+  }
+  .display {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    line-height: 0.92;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
