@@ -171,3 +171,16 @@ export const promoterFormSchema = z.object({
   commissionPercent: percentToBps,
   commissionFixed: reaisToCentsSchema,
 });
+
+export const memberFormSchema = z.object({
+  organizationId: uuidSchema,
+  email: z.string().trim().toLowerCase().email().max(254),
+  name: z.string().trim().min(2).max(120),
+  role: z.enum(["ORGANIZATION_ADMIN", "EVENT_MANAGER", "CHECKIN_OPERATOR", "PROMOTER"]),
+  initialPassword: z
+    .string()
+    .max(200)
+    .transform((v) => v || undefined)
+    .optional(),
+  promoterId: uuidSchema.optional().or(z.literal("").transform(() => undefined)),
+});

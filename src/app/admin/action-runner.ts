@@ -13,10 +13,13 @@ import { withLogContext } from "@/server/lib/logger";
 export type ActionState = { error?: string; ok?: string; fields?: Record<string, string> } | undefined;
 
 /** Runs an admin mutation with auth, request context for the audit trail, and uniform errors. */
-export async function run(fn: (auth: AuthContext) => Promise<ActionState | void>): Promise<ActionState> {
+export async function run(
+  fn: (auth: AuthContext) => Promise<ActionState | void>,
+  opts: { allowPendingSetup?: boolean } = {},
+): Promise<ActionState> {
   const h = await headers();
   try {
-    const auth = await requireApiAuth();
+    const auth = await requireApiAuth(opts);
     return await withLogContext(
       { request_id: h.get("x-request-id") ?? undefined, user_id: auth.user.id, ip: clientIp(h) ?? undefined, user_agent: h.get("user-agent") ?? undefined },
       async () => (await fn(auth)) ?? { ok: "Salvo." },

@@ -13,6 +13,7 @@ export type Permission =
   | "finance:read" // revenue, fees, payments
   | "refunds:create"
   | "reconciliation:manage"
+  | "privacy:manage" // LGPD data-subject requests
   | "tickets:read"
   | "tickets:write"
   | "checkin:perform"
@@ -31,6 +32,7 @@ const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     "finance:read",
     "refunds:create",
     "reconciliation:manage",
+    "privacy:manage",
     "tickets:read",
     "tickets:write",
     "checkin:perform",

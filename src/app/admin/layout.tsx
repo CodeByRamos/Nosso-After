@@ -19,6 +19,8 @@ const NAV: { href: string; label: string; perm: Permission }[] = [
   { href: "/admin/coupons", label: "Cupons", perm: "events:write" },
   { href: "/admin/promoters", label: "Promoters", perm: "events:write" },
   { href: "/admin/reports", label: "Relatórios", perm: "finance:read" },
+  { href: "/admin/customers", label: "Titulares (LGPD)", perm: "privacy:manage" },
+  { href: "/admin/members", label: "Membros", perm: "members:manage" },
   { href: "/admin/settings", label: "Configurações", perm: "members:manage" },
 ];
 
@@ -45,6 +47,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <p className="truncate">{auth.user.email}</p>
             <div className="mt-2 flex gap-3">
               <Link href="/checkin" className="underline">Scanner</Link>
+              <Link href="/conta" className="underline">Conta</Link>
               <form action={logoutAction}>
                 <button className="underline">Sair</button>
               </form>

@@ -144,6 +144,15 @@ export const users = pgTable(
     passwordHash: text("password_hash").notNull(),
     platformRole: platformRole("platform_role"),
     status: userStatus("status").notNull().default("ACTIVE"),
+    /** Set when an admin creates the account with an initial password. */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
+    /** TOTP secret, AES-256-GCM encrypted with MFA_ENCRYPTION_KEY (never stored in clear). */
+    mfaSecretEnc: text("mfa_secret_enc"),
+    mfaEnabledAt: ts("mfa_enabled_at"),
+    /** SHA-256 hashes of unused one-time recovery codes. */
+    mfaRecoveryHashes: jsonb("mfa_recovery_hashes").$type<string[]>(),
+    /** Last accepted TOTP time step — a code can't be replayed within its window. */
+    mfaLastStep: integer("mfa_last_step"),
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: ts("locked_until"),
     lastLoginAt: ts("last_login_at"),

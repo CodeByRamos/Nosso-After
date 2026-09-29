@@ -39,6 +39,10 @@ export default async function setup() {
     } catch {
       await pg.stop();
     }
-    rmSync(dir, { recursive: true, force: true });
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+    } catch {
+      /* Windows may keep the dir locked briefly; the next run wipes it anyway. */
+    }
   };
 }

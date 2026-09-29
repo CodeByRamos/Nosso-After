@@ -24,3 +24,23 @@ export async function register() {
     }
   }, 30_000);
 }
+
+/**
+ * Called by Next.js for every uncaught server error (render, route handler, action).
+ * Structured + redacted log line; this is the hook to forward to Sentry/OTel when adopted.
+ */
+export async function onRequestError(
+  err: unknown,
+  request: { path: string; method: string; headers: Record<string, string | string[] | undefined> },
+  context: { routerKind: string; routePath: string; routeType: string },
+) {
+  const { logger } = await import("@/server/lib/logger");
+  const rid = request.headers["x-request-id"];
+  logger.error("request.uncaught_error", {
+    err,
+    request_id: Array.isArray(rid) ? rid[0] : rid,
+    method: request.method,
+    route: context.routePath,
+    route_type: context.routeType,
+  });
+}

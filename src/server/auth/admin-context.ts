@@ -9,6 +9,7 @@ export async function adminContext(permission: Permission) {
   const orgs = await organizationsWith(auth, permission);
   if (orgs.length === 0) {
     // Operators without admin rights land on the scanner instead of an error page.
+    if (auth.memberships.length > 0 && auth.memberships.every((m) => m.role === "PROMOTER")) redirect("/promoter");
     redirect(permission === "dashboard:view" ? "/checkin" : "/admin");
   }
   return { auth, orgs, orgIds: orgs.map((o) => o.organizationId) };

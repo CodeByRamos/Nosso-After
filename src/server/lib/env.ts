@@ -25,6 +25,14 @@ const schema = z
     MERCADOPAGO_WEBHOOK_SECRET: z.string().optional(),
     MERCADOPAGO_STATEMENT_DESCRIPTOR: z.string().max(13).default("NOSSOAFTER"),
 
+    /** 32 random bytes, base64url. Encrypts TOTP secrets at rest. */
+    MFA_ENCRYPTION_KEY: z
+      .string()
+      .optional()
+      .refine((v) => !v || Buffer.from(v, "base64url").length === 32, "must be 32 bytes base64url"),
+    /** Who must have MFA: none | admins (SUPER_ADMIN + ORGANIZATION_ADMIN) | all staff. */
+    REQUIRE_MFA: z.enum(["none", "admins", "all"]).optional(),
+
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   })
   .superRefine((env, ctx) => {
@@ -60,6 +68,12 @@ const schema = z
         });
       }
     }
+    if ((env.APP_ENV === "production" || env.APP_ENV === "staging") && !env.MFA_ENCRYPTION_KEY) {
+      ctx.addIssue({ code: "custom", path: ["MFA_ENCRYPTION_KEY"], message: "required outside development" });
+    }
+    if (env.APP_ENV === "production" && env.REQUIRE_MFA === "none") {
+      ctx.addIssue({ code: "custom", path: ["REQUIRE_MFA"], message: "MFA cannot be disabled in production" });
+    }
     if (env.APP_ENV === "production" && !env.APP_URL.startsWith("https://")) {
       ctx.addIssue({ code: "custom", path: ["APP_URL"], message: "must be https in production" });
     }
@@ -84,6 +98,12 @@ export function env(): Env {
 /** For tests only. */
 export function resetEnvCache() {
   cached = undefined;
+}
+
+/** Effective MFA policy: production defaults to admins; elsewhere opt-in. */
+export function mfaPolicy(): "none" | "admins" | "all" {
+  const e = env();
+  return e.REQUIRE_MFA ?? (e.APP_ENV === "production" ? "admins" : "none");
 }
 
 export function isProduction() {

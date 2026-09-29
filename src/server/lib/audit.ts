@@ -38,7 +38,10 @@ export type AuditAction =
   | "member.update"
   | "customer.export"
   | "customer.anonymize"
-  | "report.export";
+  | "report.export"
+  | "auth.password_change"
+  | "auth.mfa_enable"
+  | "auth.mfa_disable";
 
 export interface AuditEntry {
   action: AuditAction;

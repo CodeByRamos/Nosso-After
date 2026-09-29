@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, fase-2]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nossoafter_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      # Test-only values; never real secrets.
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/nossoafter_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm audit --audit-level=high --omit=dev
+      - name: Build
+        run: npm run build
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/nossoafter_test
+          QR_SIGNING_SECRET: ci-only-qr-secret-0123456789abcdefghij
+          ORDER_ACCESS_SECRET: ci-only-order-secret-0123456789abcdefg
+          CRON_SECRET: ci-only-cron-secret-0123456789abcdefghi
+          MOCK_PSP_WEBHOOK_SECRET: ci-only-mock-secret-0123456789abcdefg

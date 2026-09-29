@@ -92,7 +92,11 @@ export async function deliverEmails(limit = 20) {
   for (const m of pending) {
     try {
       await sendEmail(m);
-      await db.update(emailOutbox).set({ status: "SENT", sentAt: new Date(), attempts: m.attempts + 1 }).where(eq(emailOutbox.id, m.id));
+      // The access link carries an order token: drop it from the stored payload once delivered.
+      await db
+        .update(emailOutbox)
+        .set({ status: "SENT", sentAt: new Date(), attempts: m.attempts + 1, payload: sql`${emailOutbox.payload} - 'accessUrl'` })
+        .where(eq(emailOutbox.id, m.id));
       sent++;
     } catch (e) {
       await db
@@ -104,6 +108,22 @@ export async function deliverEmails(limit = 20) {
   return { pending: pending.length, sent };
 }
 
+/**
+ * Retention policy (SECURITY.md → LGPD). Only personal/technical data is purged; financial records
+ * stay for the legal period.
+ */
+export async function applyRetention() {
+  const db = getDb();
+  const run = async (q: ReturnType<typeof sql>) => (await db.execute(q)).rowCount ?? 0;
+  return {
+    orderIps: await run(sql`UPDATE orders SET ip = NULL WHERE ip IS NOT NULL AND created_at < now() - interval '180 days'`),
+    checkinIps: await run(sql`UPDATE check_ins SET ip = NULL WHERE ip IS NOT NULL AND created_at < now() - interval '180 days'`),
+    sessions: await run(sql`DELETE FROM sessions WHERE expires_at < now() - interval '30 days' OR revoked_at < now() - interval '30 days'`),
+    webhookPayloads: await run(sql`UPDATE webhook_events SET payload = '{}'::jsonb WHERE received_at < now() - interval '365 days' AND payload <> '{}'::jsonb`),
+    sentEmails: await run(sql`DELETE FROM email_outbox WHERE status = 'SENT' AND sent_at < now() - interval '90 days'`),
+  };
+}
+
 export const JOBS = {
   "expire-orders": () => expireDueOrders(),
   "retry-webhooks": () => retryFailedWebhooks(),
@@ -113,6 +133,7 @@ export const JOBS = {
   housekeeping: async () => ({
     idempotencyKeys: await purgeExpiredIdempotencyKeys(),
     rateLimits: await purgeRateLimits(),
+    retention: await applyRetention(),
   }),
 } as const;
 export type JobName = keyof typeof JOBS;
