@@ -12,6 +12,7 @@ export type Permission =
   | "sales:read" // ticket counts, no money
   | "finance:read" // revenue, fees, payments
   | "refunds:create"
+  | "reconciliation:manage"
   | "tickets:read"
   | "tickets:write"
   | "checkin:perform"
@@ -29,6 +30,7 @@ const ROLE_PERMISSIONS: Record<MembershipRole, readonly Permission[]> = {
     "sales:read",
     "finance:read",
     "refunds:create",
+    "reconciliation:manage",
     "tickets:read",
     "tickets:write",
     "checkin:perform",

@@ -37,7 +37,8 @@ export type AuditAction =
   | "member.create"
   | "member.update"
   | "customer.export"
-  | "customer.anonymize";
+  | "customer.anonymize"
+  | "report.export";
 
 export interface AuditEntry {
   action: AuditAction;

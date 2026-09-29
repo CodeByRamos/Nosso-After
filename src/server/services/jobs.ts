@@ -12,6 +12,7 @@ import { getProvider } from "@/server/payments/registry";
 import { sendEmail } from "./email";
 import { expireOrder } from "./orders";
 import { syncPaymentFromProvider } from "./payments";
+import { runReconciliation } from "./reconciliation";
 import { retryFailedWebhooks } from "./webhooks";
 
 /** Expire unpaid orders past their reservation: sync with PSP, cancel stale Pix, release stock. */
@@ -108,6 +109,7 @@ export const JOBS = {
   "retry-webhooks": () => retryFailedWebhooks(),
   "sync-payments": () => syncStalePayments(),
   "deliver-emails": () => deliverEmails(),
+  reconcile: () => runReconciliation(),
   housekeeping: async () => ({
     idempotencyKeys: await purgeExpiredIdempotencyKeys(),
     rateLimits: await purgeRateLimits(),
