@@ -37,7 +37,9 @@ export async function confirmMfaAction(code: string): Promise<{ codes?: string[]
   try {
     const auth = await requireApiAuth({ allowPendingSetup: true });
     const codes = await confirmMfa(auth.user.id, String(code).slice(0, 12));
-    revalidatePath("/conta");
+    // No revalidatePath here: re-rendering /conta would swap the enrollment view for "MFA ativo"
+    // and the one-time recovery codes would vanish before the user saw them. The client shows
+    // the codes and navigates on "Continuar".
     return { codes };
   } catch (e) {
     return { error: isAppError(e) ? e.message : "Erro inesperado." };

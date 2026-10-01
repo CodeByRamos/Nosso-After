@@ -82,7 +82,10 @@ export async function disableMfa(userId: string, code: string, policyRequires: b
   if (policyRequires) throw new AppError("FORBIDDEN", "A política da plataforma exige MFA para o seu perfil.");
   const user = await loadUser(userId);
   if (!user.mfaEnabledAt || !user.mfaSecretEnc) throw new AppError("INVALID_STATE", "MFA não está ativo.");
-  if (verifyTotp(decryptSecret(user.mfaSecretEnc, mfaKey()), code.replace(/\s/g, "")) === null) {
+  await enforceRateLimit(`mfa-disable:${userId}`, 5, 15 * 60);
+  const step = verifyTotp(decryptSecret(user.mfaSecretEnc, mfaKey()), code.replace(/\s/g, ""));
+  // Same replay rule as login: a code (time step) can be used once.
+  if (step === null || step <= (user.mfaLastStep ?? -1)) {
     throw new AppError("VALIDATION_ERROR", "Código inválido.");
   }
   await getDb().transaction(async (tx) => {

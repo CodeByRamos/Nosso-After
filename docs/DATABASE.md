@@ -23,7 +23,10 @@ gere uma nova com `npm run db:generate`). Migrations custom (triggers) seguem o 
 | Acesso | `tickets`, `check_ins` |
 | Infra | `webhook_events`, `idempotency_keys`, `audit_logs`, `rate_limits`, `email_outbox`, `mock_psp_transactions` (só DEMO) |
 
-Entidades do briefing ainda sem tabela (Fase 2): `Coupon`, `Promoter`, `Settlement`. `EventSession`
+Fase 2: `coupons`, `coupon_batches`, `coupon_redemptions`, `promoters`, `reconciliation_issues`;
+`orders` ganhou `coupon_id`, `promoter_id`, `promoter_commission_amount`; `order_items.unit_discount`;
+`users` ganhou campos de MFA e `must_change_password`; `events` ganhou `accent_color`, `lineup`, `highlights`.
+Ainda sem tabela: `Settlement` (depende da API de relatórios do PSP). `EventSession`
 não é necessária hoje (um evento = uma sessão). O schema de `orders` já tem `discount_amount`.
 
 ## Invariantes no banco
@@ -59,4 +62,4 @@ Dados de evento de verdade são cadastrados em `/admin/events`.
 ## Retenção
 
 Ver SECURITY.md → LGPD. Os jobs de purga de `sessions`, `orders.ip` e `webhook_events.payload` estão
-especificados e ficam para a Fase 2. `idempotency_keys` e `rate_limits` já são limpos pelo job `housekeeping`.
+aplicados pelo job `housekeeping` (função `applyRetention`), junto com `idempotency_keys` e `rate_limits`.

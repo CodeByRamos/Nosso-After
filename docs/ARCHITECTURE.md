@@ -77,7 +77,7 @@ Máquinas de estado:
 
 ## Jobs
 
-`expire-orders`, `retry-webhooks`, `sync-payments`, `deliver-emails`, `housekeeping`. Todos
+`expire-orders`, `retry-webhooks`, `sync-payments`, `deliver-emails`, `reconcile`, `housekeeping`. Todos
 idempotentes. Rodam por `POST /api/cron/<job>` (Bearer `CRON_SECRET`). Em development rodam no
 próprio processo (`instrumentation.ts`).
 
@@ -89,7 +89,8 @@ próprio processo (`instrumentation.ts`).
 - `x-request-id` propagado (proxy → handler → resposta → audit_logs).
 - `GET /api/health` (banco + provider). Pronto para uptime check.
 - `payment_attempts` registra toda chamada ao PSP (operação, resultado, latência, erro).
-- Pendente (Fase 2): Sentry/OTel e alertas. Os pontos de integração são `logger.error` e os status
+- `onRequestError` (instrumentation) registra toda exceção não tratada.
+- Pendente: Sentry/OTel e alertas. Os pontos de integração são `onRequestError`, `logger.error` e os status
   `webhook_events.FAILED` / `payments.failure_code = INTEGRITY_MISMATCH`.
 
 ## Decisões

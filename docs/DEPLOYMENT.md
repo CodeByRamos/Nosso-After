@@ -17,7 +17,8 @@ production faz o boot falhar, e o provider `mock` com `APP_ENV=production` tamb�
 ## Variáveis
 
 Ver `.env.example` (nomes, sem valores). Obrigatórias: `DATABASE_URL`, `APP_URL` (https em prod),
-`QR_SIGNING_SECRET`, `ORDER_ACCESS_SECRET`, `CRON_SECRET` (≥ 32 caracteres cada), `PAYMENT_PROVIDER`
+`QR_SIGNING_SECRET`, `ORDER_ACCESS_SECRET`, `CRON_SECRET` (≥ 32 caracteres cada),
+`MFA_ENCRYPTION_KEY` (32 bytes base64url, staging/produção), `REQUIRE_MFA` (produção: padrão `admins`), `PAYMENT_PROVIDER`
 e as credenciais do provider escolhido. Opcionais: `DB_POOL_MAX`, `DB_CONNECT_TIMEOUT_MS`,
 `ORDER_RESERVATION_MINUTES`, `LOG_LEVEL`.
 
@@ -48,7 +49,8 @@ POST {APP_URL}/api/cron/retry-webhooks
 POST {APP_URL}/api/cron/sync-payments
 POST {APP_URL}/api/cron/deliver-emails
 ```
-E uma vez por hora: `POST /api/cron/housekeeping`.
+A cada 15 minutos: `POST /api/cron/reconcile` (conciliação).
+Uma vez por hora: `POST /api/cron/housekeeping` (limpeza + retenção LGPD).
 
 ## Webhook do PSP
 
@@ -62,13 +64,16 @@ Para testar localmente com o sandbox, exponha o dev server por um túnel (ex.: c
 - Alerta para `webhook_events` com status FAILED > 0 por mais de 15 min.
 - Alerta para `payments.failure_code = 'INTEGRITY_MISMATCH'`.
 - Alerta para pedidos em `REFUND_PENDING`.
-- Error tracking (Sentry) — Fase 2.
+- Error tracking (Sentry): ainda não integrado; o gancho é `onRequestError` em `src/instrumentation.ts`.
+- Alerta para `reconciliation_issues` com severidade CRITICAL abertas.
 
 ## Go-live checklist
 
 - [ ] Checklist de PAYMENTS.md concluído em staging com o sandbox real.
 - [ ] Termos e privacidade revisados pelo jurídico; dados do controlador/DPO publicados.
 - [ ] Provedor de e-mail transacional configurado (hoje os e-mails ficam em `email_outbox`).
-- [ ] MFA para admins; seed de produção feito manualmente (sem `db:seed`).
+- [ ] `MFA_ENCRYPTION_KEY` gerada e guardada no secrets manager (perdê-la invalida todos os MFA).
+- [ ] Seed de produção feito manualmente (sem `db:seed`); admins ativam MFA no 1º acesso.
+- [ ] Logo oficial em SVG e artes em storage próprio (ver BRAND.md §6).
 - [ ] Backups testados (restore).
 - [ ] Teste de carga do checkout no pico esperado de abertura de lote.

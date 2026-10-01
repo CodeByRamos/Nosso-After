@@ -39,15 +39,28 @@
   endpoint autenticado e registro em auditoria.
 - Termos e política de privacidade publicados como **rascunho técnico**, pendentes de revisão jurídica.
 
+## Fase 2 — controles adicionados
+
+| Área | Implementação |
+|---|---|
+| MFA | TOTP (RFC 6238) com `node:crypto`. Segredo cifrado com AES-256-GCM (`MFA_ENCRYPTION_KEY`), 8 códigos de recuperação de uso único guardados como SHA-256, anti-replay por janela de tempo (login e desativação), desafio de login em cookie assinado de 5 min com `path=/login`. Política `REQUIRE_MFA` (produção: `admins` por padrão; `none` proibido). Quem está sem MFA obrigatório só acessa `/conta` |
+| Membros | Senha provisória com troca obrigatória (outras sessões revogadas na troca), a organização nunca fica sem admin, ninguém altera o próprio acesso, tudo auditado |
+| Cupons | Validação só no servidor; mesma mensagem para código inexistente, inativo ou expirado (não dá para sondar); contagem de uso atômica com `CHECK` |
+| Promoters | Atribuição apenas por cookie httpOnly **assinado** pelo servidor; o corpo da requisição não carrega promoter |
+| Relatórios | CSV por permissão e por organização, auditado, com proteção contra injeção de fórmula (`=`, `+`, `-`, `@`) |
+| LGPD | Exportação JSON do titular e anonimização irreversível (bloqueada com obrigação em aberto; registros financeiros mantidos), ambas auditadas; o link de acesso ao pedido sai da fila de e-mail após o envio |
+| Retenção | Job `housekeeping`: IP de pedidos e check-ins após 180 dias, sessões após 30 dias, payload de webhook após 1 ano, e-mails enviados após 90 dias |
+| Erros | `onRequestError` registra toda exceção não tratada em log estruturado e redigido |
+
 ## Pendências conhecidas (antes de produção)
 
-1. MFA para `SUPER_ADMIN` / `ORGANIZATION_ADMIN`.
-2. Tela de gestão de membros e convites (hoje via seed/SQL).
-3. Rate limit no edge (WAF/Cloudflare) além do Postgres.
+1. Convites por e-mail para membros (hoje o admin define uma senha provisória, trocada no 1º acesso).
+2. Rate limit no edge (WAF/Cloudflare) além do Postgres.
+3. Restringir os hosts de imagem no CSP quando as artes tiverem storage próprio (hoje `img-src https:`).
 4. Rotação de `QR_SIGNING_SECRET` com suporte a duas chaves (kid) para não invalidar ingressos emitidos.
 5. Criptografia de tokens OAuth do PSP (quando o split marketplace for implementado).
-6. Error tracking (Sentry) + alertas de `webhook_events.FAILED` e `INTEGRITY_MISMATCH`.
-7. Pentest e revisão de dependências (npm audit) no pipeline de CI.
+6. Error tracking (Sentry) + alertas de `webhook_events.FAILED`, `INTEGRITY_MISMATCH` e pendências de conciliação.
+7. Pentest externo antes do go-live. (`npm audit --audit-level=high` já roda no CI.)
 
 ## Reportar vulnerabilidade
 
