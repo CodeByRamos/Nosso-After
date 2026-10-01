@@ -58,6 +58,7 @@ As credenciais de login do seed são as `SEED_*` do seu `.env.local`.
 
 ## Documentação
 
+- [BRAND.md](docs/BRAND.md): análise da identidade visual, público, tokens e decisões de design
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md): camadas, fluxos, decisões
 - [PAYMENTS.md](docs/PAYMENTS.md): payment core, PSP, webhooks, refunds, checklist de produção
 - [SECURITY.md](docs/SECURITY.md): controles implementados, LGPD, pendências

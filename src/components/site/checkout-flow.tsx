@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api, ApiError, newIdempotencyKey } from "@/lib/api-client";
-import { formatBRL, formatWeekdayDate } from "@/lib/format";
+import { editionTheme, flyerDate, flyerTime, flyerWeekday } from "@/lib/brand";
+import { formatBRL } from "@/lib/format";
 
 interface Item {
   batchId: string;
@@ -49,7 +50,7 @@ export function CheckoutFlow({
   items,
   methods,
 }: {
-  event: { id: string; name: string; slug: string; startsAt: string };
+  event: { id: string; name: string; slug: string; startsAt: string; accentColor: string | null };
   items: Item[];
   methods: { pix: boolean; card: boolean };
 }) {
@@ -140,24 +141,27 @@ export function CheckoutFlow({
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   return (
-    <div className="mx-auto max-w-xl px-4 pb-24 pt-8">
-      <Link href={`/eventos/${event.slug}`} className="text-sm text-mute hover:text-sand">
-        ← {event.name}
+    <div className="mx-auto max-w-xl px-4 pb-24 pt-8" style={editionTheme(event.accentColor)}>
+      <Link href={`/eventos/${event.slug}`} className="type-label inline-flex min-h-11 items-center text-muted hover:text-fg">
+        ← Voltar ao evento
       </Link>
-      <p className="mt-1 text-sm text-sunset first-letter:uppercase">{formatWeekdayDate(event.startsAt)}</p>
+      <h1 className="type-headline mt-2 text-3xl text-edition">{event.name}</h1>
+      <p className="type-label mt-2 text-fg-2">
+        {flyerDate(event.startsAt)} • {flyerWeekday(event.startsAt)} • {flyerTime(event.startsAt)}
+      </p>
 
       <ol className="mt-6 grid grid-cols-3 gap-2" aria-label="Etapas">
         {STEPS.map((s, i) => (
           <li key={s.id} className="text-xs">
-            <div className={`h-1 rounded-full ${i <= stepIndex ? "bg-sunset" : "bg-line"}`} />
-            <span className={`mt-2 block ${i === stepIndex ? "text-sand" : "text-mute"}`} aria-current={i === stepIndex ? "step" : undefined}>
+            <div className={`h-1.5 ${i <= stepIndex ? "bg-edition" : "bg-line"}`} />
+            <span className={`type-label mt-2 block text-[0.6875rem] ${i === stepIndex ? "text-fg" : "text-muted"}`} aria-current={i === stepIndex ? "step" : undefined}>
               {s.label}
             </span>
           </li>
         ))}
       </ol>
 
-      <section className="mt-6 rounded-2xl border border-line bg-ink-2 p-4 text-sm">
+      <section className="mt-6 border-2 border-fg/15 bg-surface p-4 text-sm">
         {items.map((i) => (
           <div key={i.batchId} className="flex justify-between py-1">
             <span>
@@ -166,14 +170,14 @@ export function CheckoutFlow({
             <span className="tabular">{formatBRL(i.unitPrice * i.quantity)}</span>
           </div>
         ))}
-        <div className="mt-2 flex justify-between border-t border-line pt-2 text-sand-2">
+        <div className="mt-2 flex justify-between border-t border-line pt-2 text-fg-2">
           <span>Subtotal</span>
           <span className="tabular">{formatBRL(subtotal)}</span>
         </div>
       </section>
 
       {error && (
-        <p role="alert" className="mt-4 rounded-xl border border-danger/50 bg-danger/10 p-3 text-sm text-danger">
+        <p role="alert" className="mt-4 border-l-4 border-danger bg-danger/10 p-3 text-sm text-fg">
           {error}
         </p>
       )}
@@ -200,15 +204,15 @@ export function CheckoutFlow({
             <input inputMode="numeric" autoComplete="off" value={buyer.document} onChange={(e) => setBuyer({ ...buyer, document: maskCpf(e.target.value) })} className={inputCls} />
           </Field>
           <label className="flex items-start gap-3 text-sm">
-            <input type="checkbox" checked={buyer.acceptTerms} onChange={(e) => setBuyer({ ...buyer, acceptTerms: e.target.checked })} className="mt-1 size-5 accent-sunset" />
+            <input type="checkbox" checked={buyer.acceptTerms} onChange={(e) => setBuyer({ ...buyer, acceptTerms: e.target.checked })} className="mt-1 size-5 accent-primary" />
             <span>
               Li e aceito os <Link href="/termos" target="_blank" className="underline">termos de uso</Link> e a{" "}
               <Link href="/privacidade" target="_blank" className="underline">política de privacidade</Link>.
               {fieldErrors.acceptTerms && <span className="block text-danger">{fieldErrors.acceptTerms}</span>}
             </span>
           </label>
-          <label className="flex items-start gap-3 text-sm text-sand-2">
-            <input type="checkbox" checked={buyer.marketingOptIn} onChange={(e) => setBuyer({ ...buyer, marketingOptIn: e.target.checked })} className="mt-1 size-5 accent-sunset" />
+          <label className="flex items-start gap-3 text-sm text-fg-2">
+            <input type="checkbox" checked={buyer.marketingOptIn} onChange={(e) => setBuyer({ ...buyer, marketingOptIn: e.target.checked })} className="mt-1 size-5 accent-primary" />
             <span>Quero receber novidades das próximas datas (opcional).</span>
           </label>
           <PrimaryButton type="submit">Continuar</PrimaryButton>
@@ -217,7 +221,7 @@ export function CheckoutFlow({
 
       {step === "pagamento" && (
         <div className="mt-6 space-y-3">
-          <p className="text-sm text-sand-2">Como você quer pagar?</p>
+          <p className="text-sm text-fg-2">Como você quer pagar?</p>
           {methods.pix && (
             <MethodOption selected={method === "PIX"} onSelect={() => setMethod("PIX")} title="Pix" subtitle="Aprovação na hora. QR Code válido durante a reserva." />
           )}
@@ -233,7 +237,7 @@ export function CheckoutFlow({
 
       {step === "revisao" && quote && (
         <div className="mt-6 space-y-4">
-          <div className="rounded-2xl border border-line p-4 text-sm">
+          <div className="border-2 border-fg/15 p-4 text-sm">
             {quote.lines.map((l) => (
               <div key={l.batchId} className="flex justify-between py-1">
                 <span>
@@ -243,12 +247,12 @@ export function CheckoutFlow({
               </div>
             ))}
             {quote.discount > 0 && (
-              <div className="flex justify-between py-1 text-sea">
+              <div className="flex justify-between py-1 text-success">
                 <span>Cupom {quote.couponCode}</span>
                 <span className="tabular">−{formatBRL(quote.discount)}</span>
               </div>
             )}
-            <div className="flex justify-between py-1 text-sand-2">
+            <div className="flex justify-between py-1 text-fg-2">
               <span>Taxa de serviço</span>
               <span className="tabular">{formatBRL(quote.fee)}</span>
             </div>
@@ -272,28 +276,28 @@ export function CheckoutFlow({
               placeholder="Cupom de desconto"
               autoComplete="off"
               maxLength={32}
-              className={`${inputCls} py-2.5`}
+              className="field font-mono uppercase"
             />
             {quote.couponCode ? (
-              <button type="button" onClick={() => { setCouponInput(""); void loadQuote(method); }} className="shrink-0 rounded-xl border border-line px-4 text-sm">
+              <button type="button" onClick={() => { setCouponInput(""); void loadQuote(method); }} className="btn btn-ghost shrink-0 px-4">
                 Remover
               </button>
             ) : (
-              <button type="submit" disabled={busy || !couponInput.trim()} className="shrink-0 rounded-xl border border-line px-4 text-sm disabled:opacity-40">
+              <button type="submit" disabled={busy || !couponInput.trim()} className="btn btn-ghost shrink-0 px-4">
                 Aplicar
               </button>
             )}
           </form>
           {couponError && <p role="alert" className="-mt-2 text-sm text-danger">{couponError}</p>}
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-mute">Comprador</dt>
+            <dt className="text-muted">Comprador</dt>
             <dd>{buyer.name}</dd>
-            <dt className="text-mute">E-mail</dt>
+            <dt className="text-muted">E-mail</dt>
             <dd className="break-all">{buyer.email}</dd>
-            <dt className="text-mute">Pagamento</dt>
+            <dt className="text-muted">Pagamento</dt>
             <dd>{method === "PIX" ? "Pix" : "Cartão de crédito"}</dd>
           </dl>
-          <p className="text-xs text-mute">
+          <p className="text-xs text-muted">
             Ao confirmar, seus ingressos ficam reservados por alguns minutos enquanto você paga.
           </p>
           <PrimaryButton onClick={confirm} disabled={busy}>
@@ -306,15 +310,14 @@ export function CheckoutFlow({
   );
 }
 
-const inputCls =
-  "w-full rounded-xl border border-line bg-ink-3 px-4 py-3 text-sand placeholder:text-mute focus:border-sunset focus:outline-none";
+const inputCls = "field";
 
 function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium">{label}</span>
       {children}
-      {error ? <span className="mt-1 block text-sm text-danger">{error}</span> : hint ? <span className="mt-1 block text-xs text-mute">{hint}</span> : null}
+      {error ? <span className="mt-1 block text-sm text-danger">{error}</span> : hint ? <span className="mt-1 block text-xs text-muted">{hint}</span> : null}
     </label>
   );
 }
@@ -324,14 +327,14 @@ function PrimaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
     <button
       type="button"
       {...props}
-      className="w-full rounded-full bg-sunset py-4 text-base font-bold uppercase tracking-wider text-ink transition hover:bg-sunset-2 disabled:cursor-wait disabled:opacity-60"
+      className="btn btn-primary w-full text-base disabled:cursor-wait"
     />
   );
 }
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="w-full py-2 text-sm text-mute hover:text-sand">
+    <button type="button" onClick={onClick} className="w-full py-2 text-sm text-muted hover:text-fg">
       Voltar
     </button>
   );
@@ -344,14 +347,14 @@ function MethodOption({ selected, onSelect, title, subtitle }: { selected: boole
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition ${selected ? "border-sunset bg-sunset/10" : "border-line hover:border-sand-2"}`}
+      className={`flex min-h-16 w-full items-center gap-4 border-2 p-4 text-left transition-colors ${selected ? "border-edition bg-edition/10" : "border-fg/15 hover:border-fg/40"}`}
     >
-      <span className={`grid size-5 place-items-center rounded-full border-2 ${selected ? "border-sunset" : "border-mute"}`}>
-        {selected && <span className="size-2.5 rounded-full bg-sunset" />}
+      <span className={`grid size-5 place-items-center border-2 ${selected ? "border-edition" : "border-muted"}`}>
+        {selected && <span className="size-2.5 bg-edition" />}
       </span>
       <span>
         <span className="block font-semibold">{title}</span>
-        <span className="block text-sm text-sand-2">{subtitle}</span>
+        <span className="block text-sm text-fg-2">{subtitle}</span>
       </span>
     </button>
   );

@@ -33,23 +33,23 @@ function DemoCardForm({ amount, busy, onSubmit }: { amount: number; busy: boolea
   const [scenario, setScenario] = useState<"approve" | "decline">("approve");
   const [installments, setInstallments] = useState(1);
   return (
-    <div className="rounded-2xl border border-dashed border-warn/60 p-5">
-      <p className="font-semibold text-warn">Cartão — modo DEMO</p>
-      <p className="mt-1 text-sm text-sand-2">
+    <div className="border-2 border-dashed border-warning/60 p-5">
+      <p className="font-semibold text-warning">Cartão — modo DEMO</p>
+      <p className="mt-1 text-sm text-fg-2">
         Nenhum dado de cartão é digitado ou transmitido. Escolha o resultado que o simulador de PSP deve retornar.
       </p>
       <fieldset className="mt-4 space-y-2">
         <legend className="sr-only">Resultado simulado</legend>
         {(["approve", "decline"] as const).map((s) => (
           <label key={s} className="flex items-center gap-3 text-sm">
-            <input type="radio" name="scenario" checked={scenario === s} onChange={() => setScenario(s)} className="size-4 accent-sunset" />
+            <input type="radio" name="scenario" checked={scenario === s} onChange={() => setScenario(s)} className="size-4 accent-primary" />
             {s === "approve" ? "Aprovar pagamento" : "Recusar (saldo insuficiente)"}
           </label>
         ))}
       </fieldset>
       <label className="mt-4 block text-sm">
         Parcelas
-        <select value={installments} onChange={(e) => setInstallments(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-line bg-ink-3 px-3 py-2">
+        <select value={installments} onChange={(e) => setInstallments(Number(e.target.value))} className="field mt-1">
           {[1, 2, 3].map((n) => (
             <option key={n} value={n}>
               {n}× de {formatBRL(Math.ceil(amount / n))}
@@ -61,7 +61,7 @@ function DemoCardForm({ amount, busy, onSubmit }: { amount: number; busy: boolea
         type="button"
         disabled={busy}
         onClick={() => onSubmit({ token: scenario === "approve" ? "mock_tok_approve" : "mock_tok_decline", paymentMethodId: "demo", installments })}
-        className="mt-5 w-full rounded-full bg-sunset py-4 font-bold uppercase tracking-wider text-ink disabled:opacity-50"
+        className="btn btn-primary mt-5 w-full text-base"
       >
         {busy ? "Enviando…" : `Pagar ${formatBRL(amount)}`}
       </button>
@@ -162,7 +162,7 @@ function MercadoPagoBrick({
     <div>
       <Script src="https://sdk.mercadopago.com/js/v2" nonce={nonce} strategy="afterInteractive" onLoad={() => setLoaded(true)} />
       {config.environment === "SANDBOX" && (
-        <p className="mb-3 text-xs text-warn">SANDBOX: use os cartões de teste do Mercado Pago.</p>
+        <p className="mb-3 text-xs text-warning">SANDBOX: use os cartões de teste do Mercado Pago.</p>
       )}
       <div id="mp-card-brick" />
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}

@@ -19,21 +19,21 @@ export default async function CheckinHome() {
       <div className="flex items-center justify-between">
         <Wordmark />
         <form action={logoutAction}>
-          <button className="text-sm text-mute underline">Sair</button>
+          <button className="text-sm text-muted underline">Sair</button>
         </form>
       </div>
-      <h1 className="display mt-8 text-4xl">Portaria</h1>
-      <p className="mt-1 text-sm text-mute">Escolha o evento para abrir o leitor de QR Code.</p>
+      <h1 className="type-display mt-8 text-4xl">Portaria</h1>
+      <p className="mt-1 text-sm text-muted">Escolha o evento para abrir o leitor de QR Code.</p>
       <ul className="mt-6 space-y-3">
         {list.map((e) => (
           <li key={e.id}>
-            <Link href={`/checkin/${e.id}`} className="block rounded-2xl border border-line bg-ink-2 p-5 hover:border-sunset">
+            <Link href={`/checkin/${e.id}`} className="block border-2 border-fg/15 bg-surface p-5 hover:border-primary">
               <p className="text-lg font-bold">{e.name}</p>
-              <p className="text-sm text-sand-2">{formatDateTime(e.startsAt)}</p>
+              <p className="text-sm text-fg-2">{formatDateTime(e.startsAt)}</p>
             </Link>
           </li>
         ))}
-        {list.length === 0 && <li className="text-sand-2">Nenhum evento disponível para check-in.</li>}
+        {list.length === 0 && <li className="text-fg-2">Nenhum evento disponível para check-in.</li>}
       </ul>
     </main>
   );

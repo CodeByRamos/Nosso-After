@@ -36,8 +36,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="lg:grid lg:grid-cols-[220px_1fr]">
         <aside className="border-b border-stone-200 bg-white lg:sticky lg:top-0 lg:h-dvh lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between px-4 py-4">
-            <Link href="/admin" className="display text-xl text-stone-900">
-              Nosso<span className="text-sunset">After</span>
+            <Link href="/admin" className="type-display text-xl text-stone-900">
+              Nosso<span className="text-primary">After</span>
             </Link>
             <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-stone-500">Painel</span>
           </div>

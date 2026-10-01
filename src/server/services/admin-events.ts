@@ -76,6 +76,9 @@ export async function saveEvent(input: EventFormInput, actorUserId: string, even
         salesStartAt: input.salesStartAt ?? null,
         salesEndAt: input.salesEndAt ?? null,
         ageRating: input.ageRating ?? null,
+        accentColor: input.accentColor ?? null,
+        lineup: input.lineup || null,
+        highlights: input.highlights || null,
         updatedAt: new Date(),
       };
       let id = eventId;

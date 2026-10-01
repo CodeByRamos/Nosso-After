@@ -249,6 +249,15 @@ export const events = pgTable(
     salesEndAt: ts("sales_end_at"),
     timezone: text("timezone").notNull().default("America/Sao_Paulo"),
     ageRating: text("age_rating"),
+    /**
+     * Edition color. The brand recolors "AFTER" per party (pink by default, red, gold, neon…);
+     * the site follows it. Hex #rrggbb; contrast against the black background is validated on save.
+     */
+    accentColor: text("accent_color"),
+    /** Line-up, one artist per line (e.g. "DJ Blakes — Só Mandelão Original"). */
+    lineup: text("lineup"),
+    /** Perks shown on flyers, one per line: "Welcome Licor 43 | 50 primeiros". */
+    highlights: text("highlights"),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -259,6 +268,7 @@ export const events = pgTable(
     index("events_org_idx").on(t.organizationId),
     index("events_status_starts_idx").on(t.status, t.startsAt),
     check("events_dates_ck", sql`${t.endsAt} > ${t.startsAt}`),
+    check("events_accent_ck", sql`${t.accentColor} IS NULL OR ${t.accentColor} ~ '^#[0-9a-f]{6}$'`),
     check(
       "events_sales_window_ck",
       sql`${t.salesStartAt} IS NULL OR ${t.salesEndAt} IS NULL OR ${t.salesEndAt} > ${t.salesStartAt}`,

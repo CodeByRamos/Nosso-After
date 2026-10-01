@@ -17,6 +17,9 @@ export interface EventFormValues {
   salesStartAt: string | null;
   salesEndAt: string | null;
   ageRating: string | null;
+  accentColor: string | null;
+  lineup: string | null;
+  highlights: string | null;
   venueName: string;
   venueAddress: string | null;
   venueCity: string;
@@ -101,6 +104,34 @@ export function EventForm({ orgs, initial }: { orgs: { id: string; name: string 
       <FormField label="Classificação etária (opcional)">
         <input name="ageRating" defaultValue={initial?.ageRating ?? ""} placeholder="18+" className={input} />
       </FormField>
+
+      <fieldset className="grid gap-4 sm:grid-cols-2">
+        <legend className="mb-2 text-sm font-semibold">Identidade da edição</legend>
+        <FormField label="Cor da edição (opcional)" hint="A arte recolore o AFTER a cada festa. Vazio = pink da marca. Precisa ser legível no preto.">
+          <div className="flex gap-2">
+            <input
+              type="color"
+              aria-label="Escolher cor"
+              defaultValue={initial?.accentColor ?? "#f52781"}
+              onChange={(e) => {
+                const text = e.currentTarget.form?.elements.namedItem("accentColor") as HTMLInputElement | null;
+                if (text) text.value = e.currentTarget.value;
+              }}
+              className="h-10 w-12 cursor-pointer rounded border border-stone-300 bg-white"
+            />
+            <input name="accentColor" defaultValue={initial?.accentColor ?? ""} placeholder="#f52781" className={`${input} font-mono`} />
+          </div>
+          {err("accentColor")}
+        </FormField>
+        <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2">
+          <FormField label="Line-up (um por linha)" hint="Ex.: DJ Blakes — Só Mandelão Original">
+            <textarea name="lineup" defaultValue={initial?.lineup ?? ""} rows={4} className={input} />
+          </FormField>
+          <FormField label="Benefícios (um por linha)" hint="Formato da arte: Welcome Licor 43 | 50 primeiros">
+            <textarea name="highlights" defaultValue={initial?.highlights ?? ""} rows={4} className={input} />
+          </FormField>
+        </div>
+      </fieldset>
 
       <button disabled={pending} className={btn.primary}>{pending ? "Salvando…" : "Salvar evento"}</button>
     </form>

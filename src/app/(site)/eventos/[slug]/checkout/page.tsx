@@ -30,8 +30,8 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   if (!data.sale.ok || items.length === 0) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-sand-2">{data.sale.ok ? "Selecione seus ingressos para continuar." : data.sale.reason}</p>
-        <Link href={`/eventos/${data.event.slug}`} className="mt-6 inline-block text-sunset underline">
+        <p className="text-fg-2">{data.sale.ok ? "Selecione seus ingressos para continuar." : data.sale.reason}</p>
+        <Link href={`/eventos/${data.event.slug}`} className="mt-6 inline-block text-primary underline">
           Voltar ao evento
         </Link>
       </div>
@@ -41,7 +41,13 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
   const provider = getActiveProvider();
   return (
     <CheckoutFlow
-      event={{ id: data.event.id, name: data.event.name, slug: data.event.slug, startsAt: data.event.startsAt.toISOString() }}
+      event={{
+        id: data.event.id,
+        name: data.event.name,
+        slug: data.event.slug,
+        startsAt: data.event.startsAt.toISOString(),
+        accentColor: data.event.accentColor,
+      }}
       items={items}
       methods={{ pix: provider.capabilities.pix, card: provider.capabilities.creditCard }}
     />

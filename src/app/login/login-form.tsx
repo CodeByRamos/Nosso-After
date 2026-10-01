@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { loginAction, type LoginState } from "./actions";
 
-const field = "w-full rounded-xl border border-line bg-ink-3 px-4 py-3 focus:border-sunset focus:outline-none";
+const field = "field";
 
 export function LoginForm() {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, undefined);
@@ -43,7 +43,7 @@ export function LoginForm() {
           {state.error}
         </p>
       )}
-      <button disabled={pending} className="w-full rounded-full bg-sunset py-3.5 font-bold uppercase tracking-wider text-ink disabled:opacity-60">
+      <button disabled={pending} className="btn btn-primary w-full">
         {pending ? "Verificando…" : state?.mfa ? "Confirmar" : "Entrar"}
       </button>
     </form>

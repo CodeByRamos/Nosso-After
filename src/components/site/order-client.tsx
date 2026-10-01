@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, newIdempotencyKey } from "@/lib/api-client";
-import { formatBRL, formatDateTime, formatWeekdayDate, TICKET_STATUS_LABEL } from "@/lib/format";
+import { editionTheme, flyerDate, flyerTime, flyerWeekday } from "@/lib/brand";
+import { formatBRL, formatDateTime, TICKET_STATUS_LABEL } from "@/lib/format";
 import type { ClientPaymentConfig } from "@/server/payments/provider";
 import type { OrderView } from "@/server/services/orders";
 import { CardPaymentForm, type CardSubmit } from "./card-payment-form";
@@ -80,13 +81,17 @@ export function OrderClient({ initial, payment, nonce }: { initial: FullOrder; p
   const onCard = (c: CardSubmit) => startPayment({ method: "CREDIT_CARD", card: c });
 
   return (
-    <div className="mx-auto max-w-xl px-4 pb-24 pt-8">
-      <p className="text-xs uppercase tracking-[0.3em] text-mute">Pedido {order.code}</p>
-      <h1 className="display mt-2 text-5xl">{order.event?.name}</h1>
-      {order.event && <p className="mt-1 text-sm text-sunset first-letter:uppercase">{formatWeekdayDate(order.event.startsAt)}</p>}
+    <div className="mx-auto max-w-xl px-4 pb-24 pt-8" style={editionTheme(order.event?.accentColor)}>
+      <p className="type-label text-muted">Pedido {order.code}</p>
+      <h1 className="type-display mt-2 text-5xl text-edition">{order.event?.name}</h1>
+      {order.event && (
+        <p className="type-label mt-2 text-fg-2">
+          {flyerDate(order.event.startsAt)} • {flyerWeekday(order.event.startsAt)} • {flyerTime(order.event.startsAt)}
+        </p>
+      )}
 
       {error && (
-        <p role="alert" className="mt-4 rounded-xl border border-danger/50 bg-danger/10 p-3 text-sm text-danger">
+        <p role="alert" className="mt-4 border-l-4 border-danger bg-danger/10 p-3 text-sm text-fg">
           {error}
         </p>
       )}
@@ -114,13 +119,13 @@ export function OrderClient({ initial, payment, nonce }: { initial: FullOrder; p
       {order.status === "PAID" || order.status === "PARTIALLY_REFUNDED" ? (
         <section className="mt-6">
           <StatusBox tone="ok" title="Pagamento confirmado!" text={`Enviamos os ingressos para ${order.buyer?.email}. Apresente o QR Code na entrada.`} />
-          <Tickets tickets={order.tickets} />
+          <Tickets tickets={order.tickets} eventName={order.event?.name ?? ""} startsAt={order.event?.startsAt ?? null} />
         </section>
       ) : null}
 
       {order.status === "EXPIRED" && (
         <StatusBox tone="error" title="Reserva expirada" text="O tempo para pagamento acabou e os ingressos voltaram para venda.">
-          {order.event && <Link href={`/eventos/${order.event.slug}`} className="mt-3 inline-block font-semibold text-sunset underline">Comprar novamente</Link>}
+          {order.event && <Link href={`/eventos/${order.event.slug}`} className="mt-3 inline-block font-semibold text-primary underline">Comprar novamente</Link>}
         </StatusBox>
       )}
       {order.status === "REFUNDED" && <StatusBox tone="info" title="Pedido reembolsado" text="O valor foi devolvido pelo processador de pagamento e os ingressos foram cancelados." />}
@@ -136,7 +141,7 @@ export function OrderClient({ initial, payment, nonce }: { initial: FullOrder; p
 
 function Summary({ order }: { order: FullOrder }) {
   return (
-    <section className="mt-8 rounded-2xl border border-line p-4 text-sm">
+    <section className="mt-8 border-2 border-fg/15 p-4 text-sm">
       {order.items.map((i, idx) => (
         <div key={idx} className="flex justify-between py-1">
           <span>
@@ -146,12 +151,12 @@ function Summary({ order }: { order: FullOrder }) {
         </div>
       ))}
       {order.discount > 0 && (
-        <div className="flex justify-between py-1 text-sea">
+        <div className="flex justify-between py-1 text-success">
           <span>Desconto</span>
           <span className="tabular">−{formatBRL(order.discount)}</span>
         </div>
       )}
-      <div className="flex justify-between py-1 text-sand-2">
+      <div className="flex justify-between py-1 text-fg-2">
         <span>Taxa de serviço</span>
         <span className="tabular">{formatBRL(order.fee)}</span>
       </div>
@@ -160,7 +165,7 @@ function Summary({ order }: { order: FullOrder }) {
         <span className="tabular">{formatBRL(order.total)}</span>
       </div>
       {order.refunded > 0 && (
-        <div className="flex justify-between pt-1 text-sea">
+        <div className="flex justify-between pt-1 text-success">
           <span>Reembolsado</span>
           <span className="tabular">−{formatBRL(order.refunded)}</span>
         </div>
@@ -169,16 +174,23 @@ function Summary({ order }: { order: FullOrder }) {
   );
 }
 
-function Tickets({ tickets }: { tickets: TicketView[] }) {
-  if (tickets.length === 0) return <p className="mt-4 text-sm text-sand-2">Emitindo ingressos…</p>;
+function Tickets({ tickets, eventName, startsAt }: { tickets: TicketView[]; eventName: string; startsAt: string | null }) {
+  if (tickets.length === 0) return <p className="mt-4 text-sm text-fg-2">Emitindo ingressos…</p>;
   return (
     <ul className="mt-6 space-y-4">
       {tickets.map((t) => (
-        <li key={t.id} className="overflow-hidden rounded-2xl bg-sand text-ink">
-          <div className="flex items-center justify-between bg-sunset px-4 py-2 text-xs font-bold uppercase tracking-wider">
-            <span>{t.typeName} · {t.batchName}</span>
-            <span>{TICKET_STATUS_LABEL[t.status] ?? t.status}</span>
+        <li key={t.id} className="relative overflow-hidden bg-fg text-bg">
+          {/* ticket header in the edition color, like the flyer band */}
+          <div className="flex items-end justify-between gap-3 bg-edition px-4 py-3 text-on-edition">
+            <div className="min-w-0">
+              <p className="type-display truncate text-2xl">{eventName}</p>
+              {startsAt && <p className="type-label mt-1 text-[0.6875rem]">{flyerDate(startsAt)} • {flyerTime(startsAt)}</p>}
+            </div>
+            <span className="type-label shrink-0 text-[0.6875rem]">{TICKET_STATUS_LABEL[t.status] ?? t.status}</span>
           </div>
+          <p className="type-label border-b-2 border-dashed border-bg/20 px-4 py-2 text-[0.6875rem] text-bg/70">
+            {t.typeName} · {t.batchName}
+          </p>
           <div className="flex flex-col items-center gap-3 p-5">
             {t.qrSvg ? (
               // SVG generated server-side by our own QR encoder from the signed payload.
@@ -188,7 +200,7 @@ function Tickets({ tickets }: { tickets: TicketView[] }) {
                 {t.status === "CHECKED_IN" && t.checkedInAt ? `Utilizado em ${formatDateTime(t.checkedInAt)}` : "Ingresso indisponível"}
               </p>
             )}
-            <p className="text-lg font-bold">{t.holderName}</p>
+            <p className="type-headline text-xl">{t.holderName}</p>
             <p className="tabular font-mono text-sm tracking-widest">{t.code}</p>
           </div>
         </li>

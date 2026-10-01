@@ -489,7 +489,9 @@ export async function getOrderView(orderId: string) {
     refunded: order.refundedAmount,
     expiresAt: order.expiresAt.toISOString(),
     paidAt: order.paidAt?.toISOString() ?? null,
-    event: event ? { id: event.id, name: event.name, slug: event.slug, startsAt: event.startsAt.toISOString() } : null,
+    event: event
+      ? { id: event.id, name: event.name, slug: event.slug, startsAt: event.startsAt.toISOString(), accentColor: event.accentColor }
+      : null,
     buyer: customer ? { name: customer.name, email: customer.email } : null,
     items: items.map((i) => ({
       description: i.description,

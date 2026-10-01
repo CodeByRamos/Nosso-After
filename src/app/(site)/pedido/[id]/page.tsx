@@ -18,8 +18,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   if (!(await hasOrderAccess(id))) {
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
-        <h1 className="display text-4xl">Pedido protegido</h1>
-        <p className="mt-4 text-sand-2">
+        <h1 className="type-display text-4xl">Pedido protegido</h1>
+        <p className="mt-4 text-fg-2">
           Abra este pedido pelo link enviado ao seu e-mail, no mesmo aparelho em que comprou.
         </p>
       </div>

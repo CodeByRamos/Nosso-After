@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BRAND, contrast } from "@/lib/brand";
 import { reaisToCentsSchema, slugSchema, uuidSchema } from "./common";
 
 /** <input type="datetime-local"> value, interpreted in America/Sao_Paulo (UTC-03:00, no DST). */
@@ -25,7 +26,15 @@ export const eventFormSchema = z
       .max(500)
       .optional()
       .transform((v) => v || undefined)
-      .pipe(z.url().refine((u) => u.startsWith("https://") || u.startsWith("/"), "Use https").optional()),
+      .pipe(
+        z
+          .string()
+          .refine(
+            (u) => (/^https:\/\/\S+$/.test(u) && URL.canParse(u)) || /^\/(?!.*\.\.)[\w\-./]+$/.test(u),
+            "Use um link https:// ou um caminho do site começando com /",
+          )
+          .optional(),
+      ),
     venueName: z.string().trim().min(2).max(120),
     venueAddress: z.string().trim().max(200).optional(),
     venueCity: z.string().trim().min(2).max(80),
@@ -35,6 +44,21 @@ export const eventFormSchema = z
     salesStartAt: optionalLocalDateTime,
     salesEndAt: optionalLocalDateTime,
     ageRating: z.string().trim().max(40).optional(),
+    accentColor: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .optional()
+      .transform((v) => v || undefined)
+      .pipe(
+        z
+          .string()
+          .regex(/^#[0-9a-f]{6}$/, "Use uma cor hexadecimal (#rrggbb)")
+          .refine((c) => contrast(c, BRAND.black) >= 4.5, "Cor escura demais para o fundo preto (contraste < 4,5:1)")
+          .optional(),
+      ),
+    lineup: z.string().trim().max(2_000).optional(),
+    highlights: z.string().trim().max(2_000).optional(),
   })
   .refine((v) => v.endsAt > v.startsAt, { path: ["endsAt"], message: "Término deve ser após o início" })
   .refine((v) => !v.salesStartAt || !v.salesEndAt || v.salesEndAt > v.salesStartAt, {

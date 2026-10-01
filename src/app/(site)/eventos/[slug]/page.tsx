@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { AgeStamp, Chevrons, FlyerDate, LogoLockup } from "@/components/brand/brand";
 import { BatchPicker } from "@/components/site/batch-picker";
-import { formatTime, formatWeekdayDate } from "@/lib/format";
+import { EventPoster } from "@/components/site/event-bits";
+import { editionTheme, flyerDate, parseHighlights, parseLineup } from "@/lib/brand";
+import { formatBRL, formatTime, formatWeekdayDate } from "@/lib/format";
 import { getPublicEventBySlug } from "@/server/services/catalog";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getPublicEventBySlug((await params).slug);
   if (!data) return { title: "Evento não encontrado", robots: { index: false } };
   const { event, venue } = data;
-  const description = `${formatWeekdayDate(event.startsAt)} · ${venue?.city ?? "Guarujá"}/${venue?.state ?? "SP"}. ${event.description.slice(0, 140)}`;
+  const description = `${flyerDate(event.startsAt)} · ${formatWeekdayDate(event.startsAt)} · ${venue?.city ?? "Guarujá"}/${venue?.state ?? "SP"}. ${event.description.slice(0, 140)}`;
   const indexable = event.status === "PUBLISHED" || event.status === "SOLD_OUT";
   return {
     title: event.name,
@@ -66,60 +69,127 @@ export default async function EventPage({ params }: Props) {
     })),
   };
 
+  const lineup = parseLineup(event.lineup);
+  const highlights = parseHighlights(event.highlights);
+  const place = venue ? [venue.name, venue.addressLine, `${venue.city}/${venue.state}`].filter(Boolean).join(" • ") : "Local a confirmar";
+
   return (
-    <article className="grain">
+    <article style={editionTheme(event.accentColor)}>
       <script
         type="application/ld+json"
         // JSON-LD is data, not executable script; "<" is escaped to prevent tag injection.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
-      <header className="mx-auto max-w-5xl px-4 pb-8 pt-10 sm:pt-16">
-        <p className="text-sm text-sunset first-letter:uppercase">
-          {formatWeekdayDate(event.startsAt)} · {formatTime(event.startsAt)} às {formatTime(event.endsAt)}
-        </p>
-        <h1 className="display mt-3 text-6xl sm:text-8xl">{event.name}</h1>
-        <p className="mt-4 text-sand-2">
-          {venue ? `${venue.name} · ${venue.city}/${venue.state}` : "Local a confirmar"}
-          {event.ageRating ? ` · ${event.ageRating}` : ""}
-        </p>
-        {lowest !== null && (
-          <p className="mt-2 text-sm text-mute">
-            A partir de <strong className="text-sand">{(lowest / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong> + taxa de serviço
-          </p>
-        )}
+
+      {/* ---- flyer header ---- */}
+      <header className="tex-halftone relative overflow-hidden px-4 pb-10 pt-8 sm:pb-16 sm:pt-12">
+        <span aria-hidden className="dot-grid absolute right-4 top-5 h-12 w-16" />
+        <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,26rem)_1fr] lg:items-start">
+          {event.coverImageUrl ? (
+            <div className="relative order-2 mx-auto w-full max-w-xs sm:max-w-sm lg:order-1 lg:max-w-none">
+              <span aria-hidden className="absolute inset-0 translate-x-3 translate-y-3 bg-edition" />
+              <EventPoster src={event.coverImageUrl} alt={`Arte do evento ${event.name}`} priority className="frame relative" />
+            </div>
+          ) : (
+            <div className="order-2 grid place-items-center border-2 border-fg/15 py-12 lg:order-1">
+              <LogoLockup size="lg" tagline="festas" />
+            </div>
+          )}
+
+          <div className="relative order-1 flex gap-4 lg:order-2">
+            <div className="min-w-0 flex-1">
+              <p className="type-label text-accent">Nosso After apresenta</p>
+              <h1 className="type-display mt-3 break-words text-6xl text-edition sm:text-8xl">{event.name}</h1>
+              <div className="mt-6">
+                <FlyerDate date={event.startsAt} size="lg" />
+              </div>
+              <p className="type-label mt-4 leading-relaxed text-fg">
+                {venue?.mapsUrl ? (
+                  <a href={venue.mapsUrl} target="_blank" rel="noopener noreferrer" className="underline decoration-edition decoration-2 underline-offset-4">
+                    {place}
+                  </a>
+                ) : (
+                  place
+                )}
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                Até {formatTime(event.endsAt)}
+                {event.ageRating ? ` · ${event.ageRating}` : ""}
+              </p>
+
+              {lineup.length > 0 && (
+                <section aria-labelledby="lineup-title" className="mt-8">
+                  <h2 id="lineup-title" className="type-label text-edition">Line-up</h2>
+                  <ul className="mt-3 space-y-1">
+                    {lineup.map((a) => (
+                      <li key={a} className="type-headline text-2xl sm:text-3xl">{a}</li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {lowest !== null && (
+                <a href="#ingressos" className="btn btn-primary mt-8 w-full text-base sm:w-auto">
+                  Ingressos a partir de {formatBRL(lowest)} <Chevrons />
+                </a>
+              )}
+            </div>
+            <AgeStamp rating={event.ageRating} className="hidden shrink-0 self-stretch text-center sm:block" />
+          </div>
+        </div>
       </header>
 
-      <div className="mx-auto grid max-w-5xl gap-10 px-4 pb-20 lg:grid-cols-[1fr_380px]">
-        <section className="order-2 lg:order-1">
-          <h2 className="mb-3 text-xs uppercase tracking-[0.3em] text-mute">Sobre</h2>
-          <div className="whitespace-pre-line leading-relaxed text-sand-2">{event.description}</div>
-          {venue?.mapsUrl && (
-            <a href={venue.mapsUrl} className="mt-6 inline-block text-sm text-sea underline" rel="noopener noreferrer" target="_blank">
-              Ver no mapa
-            </a>
-          )}
+      {highlights.length > 0 && (
+        <section aria-labelledby="perks-title" className="border-y-2 border-fg/10 bg-surface px-4 py-8">
+          <div className="mx-auto max-w-6xl">
+            <h2 id="perks-title" className="sr-only">Benefícios</h2>
+            <ul className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
+              {highlights.map((h) => (
+                <li key={h.title} className="border-l-2 border-edition pl-3">
+                  <p className="type-label text-fg">{h.title}</p>
+                  {h.detail && <p className="type-label mt-1 text-[0.6875rem] text-edition">{h.detail}</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
+      )}
 
-        <aside className="order-1 lg:order-2" aria-label="Ingressos">
-          <div className="rounded-2xl border border-line bg-ink-2 p-5 lg:sticky lg:top-20">
-            <h2 className="display text-3xl">Ingressos</h2>
+      {/* ---- tickets + about ---- */}
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-28 pt-12 lg:grid-cols-[1fr_24rem] lg:pb-20">
+        <section id="ingressos" aria-labelledby="tickets-title" className="scroll-mt-20 lg:order-2">
+          <div className="lg:sticky lg:top-24">
+            <h2 id="tickets-title" className="type-headline text-4xl">Ingressos</h2>
             {sale.ok ? (
               <BatchPicker
                 eventSlug={event.slug}
                 batches={batches.map((b) => ({
                   id: b.id,
-                  label: `${b.typeName} · ${b.name}`,
+                  label: b.name,
+                  typeName: b.typeName,
                   description: b.typeDescription,
                   price: b.price,
                   max: Math.min(b.maxPerCustomer, b.available),
                   state: b.state,
+                  lowStock: b.state === "ON_SALE" && b.available <= 10,
                 }))}
               />
             ) : (
-              <p className="mt-4 rounded-xl bg-ink-3 p-4 text-sand-2">{sale.reason}</p>
+              <p className="mt-4 border-2 border-fg/15 p-4 text-fg-2">{sale.reason}</p>
             )}
           </div>
-        </aside>
+        </section>
+
+        <section aria-labelledby="about-title" className="lg:order-1">
+          <h2 id="about-title" className="type-label text-edition">Sobre a festa</h2>
+          <div className="mt-4 max-w-prose whitespace-pre-line text-lg leading-relaxed text-fg-2">{event.description}</div>
+          <div className="mt-10 border-l-4 border-accent bg-surface p-5 text-sm text-fg-2">
+            <p className="type-label text-fg">Compra oficial</p>
+            <p className="mt-2">
+              Pix aprova na hora e o ingresso com QR Code aparece na tela e no seu e-mail. Cada QR vale uma entrada.
+            </p>
+          </div>
+        </section>
       </div>
     </article>
   );

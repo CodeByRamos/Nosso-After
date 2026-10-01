@@ -29,6 +29,13 @@
       "when": 1790657016669,
       "tag": "0003_hardening_users_mfa",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790811989436,
+      "tag": "0004_event_brand_fields",
+      "breakpoints": true
     }
   ]
 }

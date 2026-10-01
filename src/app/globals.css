@@ -1,61 +1,222 @@
 @import "tailwindcss";
 
 /*
- * Nosso After — visual identity
- * Night on the Guarujá coast: deep ink sky, warm sand type, a sunset-coral signal color,
- * and a sea-teal for confirmations. The admin reuses the tokens on a light surface.
+ * NOSSO AFTER — design tokens
+ * Source of truth: the brand's own flyers/posts (see docs/BRAND.md).
+ *   black flyer background · white "NOSSO" · pink "AFTER" · yellow paint splash
+ *   hard-edged frames · chevrons ››› · hazard stripes //// · dot grids · halftone/grunge texture
+ * Each edition recolors "AFTER": --color-edition follows the event (defaults to brand pink).
  */
 @theme {
-  --color-ink: #0a0b10;
-  --color-ink-2: #12141c;
-  --color-ink-3: #1b1e2a;
-  --color-line: #2a2e3d;
-  --color-sand: #f3ece2;
-  --color-sand-2: #c9c1b5;
-  --color-mute: #8b8fa3;
-  --color-sunset: #ff5a36;
-  --color-sunset-2: #ff8a3d;
-  --color-sea: #1fc8b4;
-  --color-danger: #ff4d6d;
-  --color-warn: #ffb020;
+  /* surfaces */
+  --color-bg: #050505;
+  --color-surface: #0e0e0e;
+  --color-surface-2: #171717;
+  --color-line: #2a2a2a;
 
-  --font-display: var(--font-anton), "Impact", "Arial Narrow", sans-serif;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* text */
+  --color-fg: #ffffff;
+  --color-fg-2: #d4d4d4;
+  --color-muted: #a3a3a3; /* 8:1 on bg */
+
+  /* brand */
+  --color-primary: #f52781; /* "AFTER" pink — 5.3:1 on bg */
+  --color-primary-hover: #ff4796;
+  --color-on-primary: #050505; /* black text on pink = 5.3:1 (white would fail AA) */
+  --color-accent: #f8e22f; /* paint-splash yellow — 15:1 on bg */
+  --color-on-accent: #050505;
+  --color-edition: var(--color-primary);
+  --color-on-edition: var(--color-on-primary);
+
+  /* feedback */
+  --color-success: #2ee59d;
+  --color-danger: #ff4d4d;
+  --color-warning: #f8e22f;
+
+  /* type */
+  --font-display: var(--font-anton), "Impact", "Arial Narrow Bold", sans-serif;
+  --font-sans: var(--font-archivo), "Arial", sans-serif;
+
+  /* shape: flyers are hard-edged — frames, tape and stickers, no pills */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  /* motion */
+  --ease-snap: cubic-bezier(0.2, 0.9, 0.1, 1);
+  --animate-marquee: marquee 28s linear infinite;
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
 }
 
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    color-scheme: dark;
   }
   body {
     font-family: var(--font-sans);
+    font-variation-settings: "wdth" 100;
   }
   :focus-visible {
-    outline: 2px solid var(--color-sunset);
+    outline: 3px solid var(--color-accent);
     outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
   }
   input,
   select,
   textarea {
-    font-size: 16px; /* avoids iOS zoom on focus */
+    font-size: 16px; /* no iOS zoom on focus */
   }
 }
 
 @layer components {
-  .grain {
-    background-image:
-      radial-gradient(120% 80% at 80% -10%, rgb(255 90 54 / 0.28), transparent 60%),
-      radial-gradient(90% 70% at -10% 110%, rgb(31 200 180 / 0.18), transparent 60%);
-  }
-  .display {
+  /* ---- typography roles (Archivo is variable: wdth 62–125, wght 100–900) ---- */
+
+  /* Logo-like lettering: condensed, heavy, all caps (Anton ≈ the "AFTER" letterforms). */
+  .type-display {
     font-family: var(--font-display);
-    letter-spacing: 0.01em;
     text-transform: uppercase;
-    line-height: 0.92;
+    line-height: 0.88;
+    letter-spacing: 0.005em;
+  }
+  /* Flyer headlines ("COMEMORE SEU ANIVERSÁRIO AQUI!"): black grotesk, tight. */
+  .type-headline {
+    font-family: var(--font-sans);
+    font-weight: 900;
+    font-variation-settings: "wdth" 80;
+    text-transform: uppercase;
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+  }
+  /* Dates ("25.SET"): wide and heavy, tabular. */
+  .type-date {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-variation-settings: "wdth" 125;
+    font-variant-numeric: tabular-nums;
+    text-transform: uppercase;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  /* Small tracked caps ("SEXTA FEIRA • 23HR", venue lines, labels). */
+  .type-label {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-variation-settings: "wdth" 110;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.75rem;
+    line-height: 1.2;
   }
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- graphic elements lifted from the flyers ---- */
+
+  /* Halftone texture of the flyer backgrounds (pure CSS, no image request). */
+  .tex-halftone {
+    background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1.3px);
+    background-size: 6px 6px;
+  }
+  /* Yellow hazard stripes (bottom-left of the "Comemore" post). */
+  .hazard {
+    background-image: repeating-linear-gradient(-60deg, var(--color-accent) 0 3px, transparent 3px 10px);
+  }
+  /* Pink dot grid (top-right of the same post). */
+  .dot-grid {
+    background-image: radial-gradient(var(--color-edition) 2.2px, transparent 2.6px);
+    background-size: 12px 12px;
+  }
+  /* Thin white frame that boxes the logo on every flyer. */
+  .frame {
+    border: 2px solid var(--color-fg);
+  }
+  /* Worn/stamped texture on the logo lettering. */
+  .distress {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -9 7.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -9 7.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    -webkit-mask-size: 160px;
+    mask-size: 160px;
+  }
+
+  /* ---- buttons: solid blocks with the flyer chevrons, never pills ---- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-height: 3rem;
+    padding: 0.875rem 1.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 800;
+    font-variation-settings: "wdth" 110;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.875rem;
+    transition:
+      background-color 150ms var(--ease-snap),
+      transform 150ms var(--ease-snap);
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .btn-primary {
+    background: var(--color-edition);
+    color: var(--color-on-edition);
+  }
+  .btn-primary:not(:disabled):hover {
+    filter: brightness(1.12);
+  }
+  .btn-ghost {
+    border: 2px solid var(--color-fg);
+    color: var(--color-fg);
+  }
+  .btn-ghost:not(:disabled):hover {
+    background: var(--color-fg);
+    color: var(--color-bg);
+  }
+  /* "››››" after a CTA label; slides on hover like the flyer arrows. */
+  .chevrons {
+    display: inline-block;
+    letter-spacing: -0.15em;
+    transition: transform 200ms var(--ease-snap);
+  }
+  .btn:hover .chevrons,
+  a:hover > .chevrons {
+    transform: translateX(4px);
+  }
+
+  .field {
+    width: 100%;
+    min-height: 3rem;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--color-line);
+    background: var(--color-surface);
+    padding: 0.75rem 1rem;
+    color: var(--color-fg);
+  }
+  .field::placeholder {
+    color: var(--color-muted);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-edition);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-danger);
   }
 }
 
@@ -64,6 +225,7 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

@@ -59,8 +59,18 @@ export async function listPublishedEvents(limit = 20) {
       startsAt: events.startsAt,
       endsAt: events.endsAt,
       coverImageUrl: events.coverImageUrl,
+      accentColor: events.accentColor,
+      lineup: events.lineup,
+      ageRating: events.ageRating,
       status: events.status,
+      /** Cheapest batch currently on sale with stock (null = nothing on sale right now). */
+      minPrice: sql<number | null>`(SELECT MIN(b.price) FROM ticket_batches b WHERE b.event_id = ${events.id} AND b.status = 'ACTIVE'
+        AND b.quantity - b.sold_quantity - b.reserved_quantity > 0
+        AND (b.sales_start IS NULL OR b.sales_start <= now()) AND (b.sales_end IS NULL OR b.sales_end > now()))`,
+      available: sql<number>`COALESCE((SELECT SUM(b.quantity - b.sold_quantity - b.reserved_quantity) FROM ticket_batches b WHERE b.event_id = ${events.id} AND b.status = 'ACTIVE'),0)::int`,
+      capacity: sql<number>`COALESCE((SELECT SUM(b.quantity) FROM ticket_batches b WHERE b.event_id = ${events.id} AND b.status IN ('ACTIVE','CLOSED','PAUSED')),0)::int`,
       venueName: venues.name,
+      addressLine: venues.addressLine,
       city: venues.city,
       state: venues.state,
     })

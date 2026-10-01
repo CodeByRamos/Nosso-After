@@ -23,7 +23,8 @@ function buildCsp(nonce: string) {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${mpScript}${isDev ? " 'unsafe-eval'" : ""}`,
     // Inline style attributes (charts) are allowed; script injection is what the nonce prevents.
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' blob: data:${mpImg}`,
+    // Event flyers are admin-provided https URLs (no upload pipeline yet). Images can't run code.
+    `img-src 'self' blob: data: https:${mpImg}`,
     "font-src 'self' data:",
     `connect-src 'self'${mpConnect}`,
     `frame-src ${mp ? mpFrame.trim() : "'none'"}`,
